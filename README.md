@@ -1,2 +1,7 @@
-# iq-neuron
-integer quadratic integrate-and-fire neuron
+# Theta Neuron Implementation of Speed Prediction Model
+
+buildtime dependencies:
+
+* gcc
+
+
