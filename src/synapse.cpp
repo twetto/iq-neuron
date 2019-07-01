@@ -33,7 +33,8 @@ void send_synapse(int num_neurons, iq_neuron *neurons,
     }
     for(i = 0; i < num_neurons; i++) {
         (neurons + i)->iq(*(current + i));
-        *(current + i) -= *(current + i) / tau;
+        //*(current + i) -= *(current + i) / tau;
+        *(current + i) = *(current + i) * (tau-1) / tau;
         printf("current %d: %d\n", i, *(current+i));
     }
     return;

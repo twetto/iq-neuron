@@ -63,7 +63,7 @@ void iq_neuron::iq(int external_current)
         nullcline = _a * (_rest - x);
     else
         nullcline = _b * (x - _threshold);
-    x += nullcline/100 + external_current + rand()%21-10;
+    x += nullcline/100 + external_current + rand()%101-10;
     _is_fired = false;
     if(x > MAX_POTENTIAL) {
         spike_count++;
