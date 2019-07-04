@@ -21,7 +21,7 @@ void get_weight(FILE *fp, int num_neurons, int *weight)
 void send_synapse(int num_neurons, iq_neuron *neurons,
                   int *weight, int tau, int *current)
 {
-    int i, j;
+    int i, j, temp;
 
     for(i = 0; i < num_neurons; i++) {
         if((neurons + i)->is_fired()) {
@@ -32,10 +32,11 @@ void send_synapse(int num_neurons, iq_neuron *neurons,
         }
     }
     for(i = 0; i < num_neurons; i++) {
+        //temp = abs(*(current + i)) / 10;
+        //if(temp == 0) temp = 1;             // avoid floating point exception
+        //*(current + i) += (rand() % temp) - (temp / 2);
         (neurons + i)->iq(*(current + i));
-        //*(current + i) -= *(current + i) / tau;
         *(current + i) = *(current + i) * (tau-1) / tau;
-        printf("current %d: %d\n", i, *(current+i));
     }
     return;
 }
