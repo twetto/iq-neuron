@@ -18,11 +18,11 @@ int main()
     current = new int[num_neurons];
     for(i = 0; i < num_neurons; i++) {
         if(!(neurons + i)->is_set()) {
-            (neurons + i)->set(5000, 15000, 20000, 1, 1);
+            (neurons + i)->set(5000, 15000, 15500, 1, 1, 71);
         }
         *(current + i) = 0;
     }
-    (neurons + 0)->set(5000, 15000, 10000, 1, 1);
+    (neurons + 0)->set(10000, 15000, 14500, 1, 2, 1);
     get_weight(fp[0], num_neurons, weight);
     for(i = 0; i < num_neurons; i++) {
         sprintf(filename, "output_%d.txt", i);
@@ -30,12 +30,15 @@ int main()
     }
     printf("fp OK\n");
     for(j = 0; j < 10000; j++) {
-        send_synapse(num_neurons, neurons, weight, 40, current);
+        send_synapse(num_neurons, neurons, weight, 100, current);
+        if(j < 1000) {
+            *(current + 1) = 1000;
+            *(current + 2) = 1000;
+        }
+        if(j%5000 == 0) {
+            *(current + 0) = 300;
+        }
         for(i = 0; i < num_neurons; i++) {
-            if(j < 1000) {
-                *(current + 1) = 1000;
-                *(current + 2) = 1000;
-            }
             fprintf(fp[i], "%d\n", (neurons+i)->potential());
         }
     }
