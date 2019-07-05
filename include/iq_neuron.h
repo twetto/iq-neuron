@@ -27,7 +27,7 @@ public:
 private:
     int t_neuron;                                   // Iterator of timestep
     int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
-    int x , nullcline_min, spike_count;
+    int x , f_min, spike_count;
     bool _is_set = false, _is_fired = false;
 };
 

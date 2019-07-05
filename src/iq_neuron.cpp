@@ -7,7 +7,7 @@ iq_neuron::iq_neuron(int rest, int threshold,
 {
     x = rest;
     t_neuron = 0;
-    nullcline_min = (a*rest + b*threshold) / (a+b);
+    f_min = (a*rest + b*threshold) / (a+b);
     _a = a;
     _b = b;
     _rest = rest;
@@ -27,7 +27,7 @@ void iq_neuron::set(int rest, int threshold,
 {
     x = rest;
     t_neuron = 0;
-    nullcline_min = (a*rest + b*threshold) / (a+b);
+    f_min = (a*rest + b*threshold) / (a+b);
     _a = a;
     _b = b;
     _rest = rest;
@@ -39,13 +39,13 @@ void iq_neuron::set(int rest, int threshold,
 
 void iq_neuron::iq()
 {
-    int nullcline;
+    int f;
 
-    if(x < nullcline_min)
-        nullcline = _a * (_rest - x);
+    if(x < f_min)
+        f = _a * (_rest - x);
     else
-        nullcline = _b * (x - _threshold);
-    x += nullcline/100 + rand()%_noise-_noise/2;
+        f = _b * (x - _threshold);
+    x += f/100 + rand()%_noise-_noise/2;
     _is_fired = false;
     if(x > MAX_POTENTIAL) {
         spike_count++;
@@ -58,13 +58,13 @@ void iq_neuron::iq()
 
 void iq_neuron::iq(int external_current)
 {
-    int nullcline;
+    int f;
 
-    if(x < nullcline_min)
-        nullcline = _a * (_rest - x);
+    if(x < f_min)
+        f = _a * (_rest - x);
     else
-        nullcline = _b * (x - _threshold);
-    x += nullcline/100 + external_current + rand()%_noise-_noise/2;
+        f = _b * (x - _threshold);
+    x += f/100 + external_current + rand()%_noise-_noise/2;
     _is_fired = false;
     if(x > MAX_POTENTIAL) {
         spike_count++;
