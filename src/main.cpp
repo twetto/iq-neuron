@@ -18,11 +18,11 @@ int main()
     current = new int[num_neurons];
     for(i = 0; i < num_neurons; i++) {
         if(!(neurons + i)->is_set()) {
-            (neurons + i)->set(5000, 15000, 19000, 1, 2, 2001);
+            (neurons + i)->set(5000, 15000, 19000, 1, 2, 501);
         }
         *(current + i) = 0;
     }
-    (neurons + 0)->set(5000, 15000, 10000, 1, 2, 1);
+    (neurons + 0)->set(5000, 15000, 10000, 1, 2, 301);
     get_weight(fp[0], num_neurons, weight);
     for(i = 0; i < num_neurons; i++) {
         sprintf(filename, "output_%d.txt", i);
