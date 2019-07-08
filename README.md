@@ -1,6 +1,16 @@
 # Integer Quadratic Integrate-and-Fire Neuron
 
-buildtime dependencies:
+## Buildtime Dependencies:
 
 * gcc
+
+* cmake
+
+## Compiling:
+
+```bash
+mkdir build && cd build
+cmake ..
+make
+```
 
