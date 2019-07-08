@@ -6,11 +6,16 @@
 
 * cmake
 
-## Compiling:
+* python 2.7
+
+## Compiling & Running:
 
 ```bash
 mkdir build && cd build
 cmake ..
 make
+./main
+../theta_plot.py
 ```
 
+You can change the synaptic weights in the [Connection Table](inputs/Connection_Table.txt).
