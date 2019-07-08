@@ -24,8 +24,8 @@ void send_synapse(int num_neurons, iq_neuron *neurons,
     int i, j, temp;
 
     for(i = 0; i < num_neurons; i++) {
-        if((neurons + i)->is_fired()) {
-            printf("neuron %d is fired!\n", i);
+        if((neurons + i)->is_firing()) {
+            printf("neuron %d has fired!\n", i);
             for(j = 0; j < num_neurons; j++) {
                 *(current + j) += *(weight + num_neurons*i + j);
             }

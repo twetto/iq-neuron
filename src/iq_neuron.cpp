@@ -46,10 +46,10 @@ void iq_neuron::iq()
     else
         f = _b * (x - _threshold);
     x += f/100 + rand()%_noise-_noise/2;
-    _is_fired = false;
+    _is_firing = false;
     if(x > MAX_POTENTIAL) {
         spike_count++;
-        _is_fired = true;
+        _is_firing = true;
         x = _reset;
     }
     t_neuron++;
@@ -65,10 +65,10 @@ void iq_neuron::iq(int external_current)
     else
         f = _b * (x - _threshold);
     x += f/100 + external_current + rand()%_noise-_noise/2;
-    _is_fired = false;
+    _is_firing = false;
     if(x > MAX_POTENTIAL) {
         spike_count++;
-        _is_fired = true;
+        _is_firing = true;
         x = _reset;
     }
     t_neuron++;
@@ -80,9 +80,9 @@ int iq_neuron::potential()
     return x;
 }
 
-bool iq_neuron::is_fired()
+bool iq_neuron::is_firing()
 {
-    return _is_fired;
+    return _is_firing;
 }
 
 float iq_neuron::spike_rate()
