@@ -5,7 +5,7 @@
 #include <time.h>
 #include <limits.h>
 
-#define MAX_POTENTIAL 65535
+#define MAX_POTENTIAL 256
 
 class iq_neuron
 {
