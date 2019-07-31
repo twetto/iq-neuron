@@ -13,6 +13,8 @@ iq_neuron::iq_neuron(int rest, int threshold,
     _rest = rest;
     _threshold = threshold;
     _reset = reset;
+    if(noise == 0) noise++;
+    else if(noise < 0) noise = -noise;
     _noise = noise;
     _is_set = true;
 }
@@ -33,6 +35,8 @@ void iq_neuron::set(int rest, int threshold,
     _rest = rest;
     _threshold = threshold;
     _reset = reset;
+    if(noise == 0) noise++;
+    else if(noise < 0) noise = -noise;
     _noise = noise;
     _is_set = true;
 }
