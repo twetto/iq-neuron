@@ -5,25 +5,20 @@ using namespace std;
 
 int main()
 {
-    int num_neurons = 3;
+    int num_neurons = linenum_neuronParameter();
     int *weight, *current;
     int i, j;
     iq_neuron *neurons;
     char filename[] = "output_Number.txt";
-    FILE *fp[3];
+    FILE** fp = (FILE**) malloc(sizeof(FILE*) * num_neurons);
 
     srand((unsigned) time(NULL));
     neurons = new iq_neuron[num_neurons];
     weight = new int[num_neurons * num_neurons];
     current = new int[num_neurons];
-    for(i = 0; i < num_neurons; i++) {
-        if(!(neurons + i)->is_set()) {
-            (neurons + i)->set(50, 70, 80, 1, 3, 3);
-        }
-        *(current + i) = 0;
-    }
-    (neurons + 0)->set(40, 70, 55, 1, 2, 3);
-    get_weight(fp[0], num_neurons, weight);
+    
+    set_neurons(num_neurons, neurons);
+    get_weight(num_neurons, weight);
     for(i = 0; i < num_neurons; i++) {
         sprintf(filename, "output_%d.txt", i);
         fp[i] = fopen(filename, "w");

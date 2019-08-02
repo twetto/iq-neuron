@@ -2,9 +2,36 @@
 
 using namespace std;
 
-void get_weight(FILE *fp, int num_neurons, int *weight)
+int linenum_neuronParameter()
+{
+    int i[7], linenum = 0;
+    FILE *fp = fopen("../inputs/neuronParameter.txt", "r");
+    while(fscanf(fp, " %d %d %d %d %d %d %d", &i[0], &i[1], &i[2],
+            &i[3], &i[4], &i[5], &i[6]) == 7) {
+        linenum++;
+    }
+    fclose(fp);
+    return linenum;
+}
+
+void set_neurons(int num_neurons, iq_neuron *neurons)
+{
+    int i, rest, threshold, reset, a, b, noise;
+    FILE *fp;
+
+    fp = fopen("../inputs/neuronParameter.txt", "r");
+    while(fscanf(fp, " %d %d %d %d %d %d %d", &i, &rest, &threshold,
+            &reset, &a, &b, &noise) == 7) {
+        (neurons + i)->set(rest, threshold, reset, a, b, noise);
+    }
+    fclose(fp);
+    return;
+}
+
+void get_weight(int num_neurons, int *weight)
 {
     int i, j, temp;
+    FILE *fp;
     for(i = 0; i < num_neurons; i++) {
         for(j = 0; j < num_neurons; j++) {
             *(weight + num_neurons*i + j) = 0;
