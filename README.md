@@ -6,7 +6,7 @@
 
 * cmake
 
-* python 2.7
+* python 3
 
 ## Compiling & Running:
 
