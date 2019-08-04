@@ -19,3 +19,6 @@ make
 ```
 
 You can change the synaptic weights in the [Connection Table](inputs/Connection_Table.txt).
+
+You can change the neuron parameters in the [neuron parameter file](inputs/neuronParameter.txt). The parameters in each lines are `neuron index, rest potential, threshold potential, reset potential, noise strength` respectively.
+
