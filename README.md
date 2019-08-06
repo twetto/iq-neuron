@@ -15,7 +15,7 @@ mkdir build && cd build
 cmake ..
 make
 ./main
-../theta_plot.py
+../theta_plot.py (currently unavailable)
 ```
 
 You can change the synaptic weights in the [Connection Table](inputs/Connection_Table.txt).
