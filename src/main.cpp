@@ -8,7 +8,7 @@ int main()
 {
     int num_neurons = linenum_neuronParameter();
     int *weight, *current;
-    int i, j;
+    int i, j, k;
     iq_neuron *neurons;
     char filename[] = "output_Number.txt";
     FILE** fp = (FILE**) malloc(sizeof(FILE*) * num_neurons);
@@ -26,13 +26,11 @@ int main()
         sprintf(filename, "output_%d.txt", i);
         fp[i] = fopen(filename, "w");
     }
-    
     for(j = 0; j < 5000; j++) {
         send_synapse(num_neurons, neurons, weight, 500, current);
-        *(current + 1) = 1;
-        *(current + 2) = 1;
         
         for(i = 0; i < num_neurons; i++) {
+            if(j < 2000) *(current + i) = 1;
             fprintf(fp[i], "%d\n", (neurons+i)->potential());
             if((neurons + i)->is_firing()) {
                 last_spike_is_at[i] = j;
@@ -41,11 +39,18 @@ int main()
         
         //*(current + 0) = 1000;
     }
-    
+    /*
+    for(k = 0; k < num_neurons; k++) {
+        fprintf(fp[k], "%d %d\n", i, (neurons+k)->spike_count());
+        (neurons+k)->reset_spike_count();
+        (neurons+k)->reset_time();
+    }
+    */
+    /*
     for(i = 0; i < num_neurons; i++) {
         printf("%d\n", last_spike_is_at[i]);
     }
-    
+    */
     delete_all(weight, current, neurons);
     
     for(i = 0; i < num_neurons; i++) {

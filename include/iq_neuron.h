@@ -20,14 +20,14 @@ public:
     void iq(int external_current);          // Solve ODE with external input
     int potential();
     bool is_firing();
-    float spike_rate();
+    int spike_count();
     void reset_time();                      // Remember to reset accordingly
     void reset_spike_count();               // to get proper spiking rate
 
 private:
     int t_neuron;                                   // Iterator of timestep
     int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
-    int x , f_min, spike_count;
+    int x , f_min, _spike_count;
     bool _is_set = false, _is_firing = false;
 };
 
