@@ -6,6 +6,7 @@ int linenum_neuronParameter()
 {
     int i[7], linenum = 0;
     FILE *fp = fopen("../inputs/neuronParameter.txt", "r");
+    
     while(fscanf(fp, " %d %d %d %d %d %d %d", &i[0], &i[1], &i[2],
             &i[3], &i[4], &i[5], &i[6]) == 7) {
         linenum++;
@@ -46,9 +47,12 @@ void get_weight(int num_neurons, int *weight)
 }
 
 void send_synapse(int num_neurons, iq_neuron *neurons,
-                  int *weight, int tau, int *current)
+                  int *weight, int tau, int *current, int *biascurrent)
 {
     int i, j, temp;
+    static int n = 0;
+    static int f = (int) (log10(0.9) / log10((tau-1)/(float) tau));
+    //if(n == 0) printf("%d\n", f);
 
     for(i = 0; i < num_neurons; i++) {
         if((neurons + i)->is_firing()) {
@@ -59,12 +63,15 @@ void send_synapse(int num_neurons, iq_neuron *neurons,
         }
     }
     for(i = 0; i < num_neurons; i++) {
-        //temp = abs(*(current + i)) / 10;
-        //if(temp == 0) temp = 1;             // avoid floating point exception
-        //*(current + i) += (rand() % temp) - (temp / 2);
-        (neurons + i)->iq(*(current + i));
-        *(current + i) = *(current + i) * (tau-1) / tau;
+        (neurons + i)->iq(*(current + i) + *(biascurrent + i));
+        //printf("neuron %d current: %d\n", i, *(current + i));
+        if(n >= f) {
+            *(current + i) = *(current + i) * 9 / 10;
+        }
+        //*(current + i) = *(current + i) * (tau-1) / tau;
     }
+    if(n >= f) n = 0;
+    n++;
     return;
 }
 

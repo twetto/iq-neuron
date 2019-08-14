@@ -21,6 +21,7 @@ public:
     int potential();
     bool is_firing();
     int spike_count();
+    float spike_rate();
     void reset_time();                      // Remember to reset accordingly
     void reset_spike_count();               // to get proper spiking rate
 
