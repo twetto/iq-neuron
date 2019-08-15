@@ -1,4 +1,4 @@
-#include "synapse.h"
+#include "iq_synapse.h"
 #include <stdio.h>
 #include <random>
 
