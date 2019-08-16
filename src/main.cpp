@@ -1,4 +1,5 @@
-#include "iq_synapse.h"
+#include "iq_network.h"
+#include "iz_network.h"
 #include <stdio.h>
 #include <random>
 
@@ -6,59 +7,43 @@ using namespace std;
 
 int main()
 {
-    int num_neurons = linenum_neuronParameter();
-    int *weight, *current, *biascurrent;
     int i, j;
-    iq_neuron *neurons;
-    char filename[] = "output_Number.txt";
-    FILE** fp = (FILE**) malloc(sizeof(FILE*) * num_neurons);
-    int last_spike_is_at[num_neurons] = {0};
-    int has_won = 0;
+    char filename[] = "iq_output_Number.txt";
+    iq_network network_iq;
+    iz_network network_iz;
+    int num_neurons = network_iq.num_neurons();
+    FILE** fp_iq = (FILE**) malloc(sizeof(FILE*) * num_neurons);
+    FILE** fp_iz = (FILE**) malloc(sizeof(FILE*) * num_neurons);
 
     srand((unsigned) time(NULL));
-    neurons = new iq_neuron[num_neurons];
-    weight = new int[num_neurons * num_neurons]();
-    current = new int[num_neurons]();
-    biascurrent = new int[num_neurons]();
-    
-    set_neurons(num_neurons, neurons);
-    get_weight(num_neurons, weight);
     
     for(i = 0; i < num_neurons; i++) {
-        sprintf(filename, "output_%d.txt", i);
-        fp[i] = fopen(filename, "w");
+        sprintf(filename, "iq_output_%d.txt", i);
+        fp_iq[i] = fopen(filename, "w");
+        network_iq.set_biascurrent(i, 4);
+        sprintf(filename, "iz_output_%d.txt", i);
+        fp_iz[i] = fopen(filename, "w");
+        network_iz.set_biascurrent(i, 4);
     }
-    for(j = 0; j < 3000; j++) {
-        send_synapse(num_neurons, neurons, weight, 100, current, biascurrent);
-        for(i = 0; i < num_neurons; i++) {
-            fprintf(fp[i], "%d\n", (neurons+i)->potential());
-            if(j < 2000) {
-                *(biascurrent + i) = 4;
-            }
-            else *(biascurrent + i) = 0;
-            if((neurons + i)->is_firing()) {
-                //printf("%d: neuron %d, spike time: %d\n", j, i, j - last_spike_is_at[i]);
-                
-                if(j-last_spike_is_at[i] >= 31 && !has_won) {
-                    printf("%d\n", j);
-                    has_won = 1;
-                }
-                
-                last_spike_is_at[i] = j;
-            }
-        }
-        
-        //*(current + 0) = 1000;
+    for(j = 0; j < 2000; j++) {
+        network_iq.send_synapse();
+        network_iq.printfile(fp_iq);
+        network_iz.send_synapse();
+        network_iz.printfile(fp_iz);
     }
-    
     for(i = 0; i < num_neurons; i++) {
-        //printf("%d\n", last_spike_is_at[i]);
+        network_iq.set_biascurrent(i, 0);
+        network_iz.set_biascurrent(i, 0);
     }
-    
-    delete_all(weight, current, neurons);
-    
+    for(j = 0; j < 1000; j++) {
+        network_iq.send_synapse();
+        network_iq.printfile(fp_iq);
+        network_iz.send_synapse();
+        network_iz.printfile(fp_iz);
+    }
     for(i = 0; i < num_neurons; i++) {
-        fclose(fp[i]);
+        fclose(fp_iq[i]);
+        fclose(fp_iz[i]);
     }
     
     return 0;
