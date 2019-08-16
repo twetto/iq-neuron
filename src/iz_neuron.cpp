@@ -8,7 +8,7 @@ bool iz_neuron::is_set()
 }
 
 void iz_neuron::set(float a, float b, float c, float d, float k,
-                    float rest, float threshold, float noise)
+                    float rest, float threshold, int noise)
 {
     t_neuron = 0;
     _a = a;
@@ -21,7 +21,10 @@ void iz_neuron::set(float a, float b, float c, float d, float k,
     if(noise == 0) noise++;
     else if(noise < 0) noise = -noise;
     _noise = noise;
+    _v = rest;
+    _u = 0;
     _is_set = true;
+    //printf("a = %f\nb = %f\nc = %f\nd = %f\nk = %f\nrest = %f\nthreshold = %f\nnoise = %d\n", _a, _b, _c, _d, _k, _rest, _threshold, _noise);
     return;
 }
 
@@ -51,7 +54,9 @@ void iz_neuron::iz_rk4(float external_current)
         _is_firing = true;
         _v = _c;
         _u += _d;
+        //printf("firing...\n");
     }
+    else if(_v < 0) _v = 0;
 
     t_neuron++;
     return;
@@ -59,7 +64,7 @@ void iz_neuron::iz_rk4(float external_current)
 
 void iz_neuron::iz_euler(float external_current)
 {
-    _v += _k * (_v - _rest) * (_v - _threshold) - _u + external_current;
+    _v += _k * (_v - _rest) * (_v - _threshold) - _u + external_current + rand()%_noise-_noise/2;
     _u += _a * ( _b * (_v - _rest) - _u);
     
     _is_firing = false;
@@ -69,6 +74,7 @@ void iz_neuron::iz_euler(float external_current)
         _v = _c;
         _u += _d;
     }
+    else if(_v < 0) _v = 0;
 
     t_neuron++;
     return;
@@ -120,7 +126,7 @@ void iz_neuron::funca(float &fa, const float I, const float dtt,
     float tmpv, tmpu;
     tmpv = _v + dtt * arg1;
     tmpu = _u + dtt * arg2;
-    fa = _k * (tmpv - _rest) * (tmpv - _threshold) - tmpu + I;
+    fa = _k * (tmpv - _rest) * (tmpv - _threshold) - tmpu + I + rand()%_noise-_noise/2;
     return;
 
 }

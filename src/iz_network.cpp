@@ -45,7 +45,8 @@ int iz_network::linenum_neuronParameter()
 int iz_network::set_neurons()
 {
     int i;
-    float a, b, c, d, k, rest, threshold, noise;
+    float a, b, c, d, k, rest, threshold;
+    int noise;
     FILE *fp;
 
     if(_tau == 0) {
@@ -54,7 +55,7 @@ int iz_network::set_neurons()
         return 1;
     }
     fp = fopen("../inputs/neuronParameter_Izhikevich.txt", "r");
-    while(fscanf(fp, " %f %f %f %f %f %f %f", &i, &a, &b, &c, &d, &k, &rest, &threshold, &noise) == 9) {
+    while(fscanf(fp, " %d %f %f %f %f %f %f %f %d", &i, &a, &b, &c, &d, &k, &rest, &threshold, &noise) == 9) {
         (_neurons + i)->set(a, b, c, d, k, rest, threshold, noise);
     }
     fclose(fp);
@@ -127,7 +128,7 @@ void iz_network::printfile(FILE **fp)
 
 void iz_network::set_biascurrent(int neuron_index, float biascurrent)
 {
-    _biascurrent[neuron_index] = biascurrent;
+    *(_biascurrent + neuron_index) = biascurrent;
     return;
 }
 
