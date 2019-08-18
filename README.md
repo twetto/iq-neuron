@@ -24,7 +24,7 @@ You can change the synaptic weights in the [Connection Table](inputs/Connection_
 
 You can change the neuron parameters in the [neuron parameter file](inputs/neuronParameter_IQIF.txt). The parameters in each lines are `neuron index, rest potential, threshold potential, reset potential, noise strength` respectively.
 
-I also have a [Izhikevich model](include/iz_network.h) for comparison. You can check how it performs WTA as well using `../utils/iz_plot.py`.
+I also have an [Izhikevich model](include/iz_network.h) for comparison. You can check how it performs WTA as well using `../utils/iz_plot.py`.
 
 ![IQIF & Izhikevich performing WTA](WTA.png)
 
