@@ -58,7 +58,7 @@ void iq_neuron::iq()
         _is_firing = true;
         x = _reset;
     }
-    else if(x < 0) x = 0;
+    //else if(x < 0) x = 0;
     t_neuron++;
     return;
 }
@@ -78,7 +78,7 @@ void iq_neuron::iq(int external_current)
         _is_firing = true;
         x = _reset;
     }
-    else if(x < 0) x = 0;
+    //else if(x < 0) x = 0;
     t_neuron++;
     return;
 }

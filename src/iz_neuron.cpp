@@ -56,7 +56,7 @@ void iz_neuron::iz_rk4(float external_current)
         _u += _d;
         //printf("firing...\n");
     }
-    else if(_v < 0) _v = 0;
+    //else if(_v < 0) _v = 0;
 
     t_neuron++;
     return;
@@ -74,7 +74,7 @@ void iz_neuron::iz_euler(float external_current)
         _v = _c;
         _u += _d;
     }
-    else if(_v < 0) _v = 0;
+    //else if(_v < 0) _v = 0;
 
     t_neuron++;
     return;

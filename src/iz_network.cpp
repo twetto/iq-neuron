@@ -116,12 +116,15 @@ void iz_network::send_synapse()
     return;
 }
 
-void iz_network::printfile(FILE **fp)
+void iz_network::printfile(FILE **fp_potential, FILE **fp_adaptive_term)
 {
     int i;
 
     for(i = 0; i < _num_neurons; i++) {
-        fprintf(fp[i], "%f\n", (_neurons+i)->potential());
+        fprintf(fp_potential[i], "%f\n", (_neurons+i)->potential());
+    }
+    for(i = 0; i < _num_neurons; i++) {
+        fprintf(fp_adaptive_term[i], "%f\n", (_neurons+i)->adaptive_term());
     }
     return;
 }

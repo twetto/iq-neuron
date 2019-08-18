@@ -16,7 +16,7 @@ public:
     int get_weight();
     int num_neurons();
     void send_synapse();
-    void printfile(FILE **fp);
+    void printfile(FILE **fp_potential, FILE **fp_adaptive_term);
     void set_biascurrent(int neuron_index, float biascurrent);
 
 private:
