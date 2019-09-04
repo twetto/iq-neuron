@@ -18,8 +18,6 @@ make
 ../utils/iq_plot.py
 ```
 
-By default there are two neurons inhibiting each other to perform the winner-take-all behavior.
-
 You can change the synaptic weights in the [Connection Table](inputs/Connection_Table_IQIF.txt).
 
 You can change the neuron parameters in the [neuron parameter file](inputs/neuronParameter_IQIF.txt). The parameters in each lines are `neuron index, rest potential, threshold potential, reset potential, noise strength` respectively.
