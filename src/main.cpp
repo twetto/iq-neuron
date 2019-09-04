@@ -25,23 +25,21 @@ int main()
     }
 
     int num_steps, index, bias;
+    printf("This is a customized testbench. If you are finished simulating, please type '-1' to quit.\n");
     printf("How many timesteps do you want?\n");
     scanf(" %d", &num_steps);
     while(num_steps >= 0) {
         printf("num_steps: %d\n", num_steps);
-        
-        printf("Neuron to insert bias current:\n");
+        printf("Which neuron do you want to insert bias current?\n", num_steps);
         scanf(" %d", &index);
         while(index >= 0) {
-            printf("How much current do you want to insert?\n");
+            printf("How much current do you want to insert to neuron %d?\n", index);
             scanf(" %d", &bias);
             network_iq.set_biascurrent(index, bias);
-            printf("neuron %d is receiving current %d\n", index, bias);
-            
-            printf("Neuron to insert bias current:\n");
+            printf("neuron %d is receiving current %d. Waiting for another input...\n", index, bias);
+            printf("Which neuron do you want to insert bias current?\n", num_steps);
             scanf(" %d", &index);
         }
-
         printf("Set complete; sending synapses...\n");
         for(i = 0; i < num_steps; i++) {
             network_iq.send_synapse();
