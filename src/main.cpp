@@ -30,14 +30,14 @@ int main()
     scanf(" %d", &num_steps);
     while(num_steps >= 0) {
         printf("num_steps: %d\n", num_steps);
-        printf("Which neuron do you want to insert bias current?\n", num_steps);
+        printf("Which neuron do you want to insert bias current?\n");
         scanf(" %d", &index);
         while(index >= 0) {
             printf("How much current do you want to insert to neuron %d?\n", index);
             scanf(" %d", &bias);
             network_iq.set_biascurrent(index, bias);
             printf("neuron %d is receiving current %d. Waiting for another input...\n", index, bias);
-            printf("Which neuron do you want to insert bias current?\n", num_steps);
+            printf("Which neuron do you want to insert bias current?\n");
             scanf(" %d", &index);
         }
         printf("Set complete; sending synapses...\n");

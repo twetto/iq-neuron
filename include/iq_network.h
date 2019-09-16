@@ -22,7 +22,7 @@ public:
 private:
     int linenum_neuronParameter();
     int _num_neurons;
-    int _tau = 0, _f;
+    int *_tau, *_f, *_n;
     int *_weight, *_current, *_biascurrent;
     iq_neuron *_neurons;
 
