@@ -21,12 +21,12 @@ iq_network::iq_network()
 iq_network::~iq_network()
 {
     delete[] _weight;
-    delete[] _neurons;
     delete[] _current;
     delete[] _biascurrent;
     delete[] _tau;
     delete[] _f;
     delete[] _n;
+    delete[] _neurons;
     return;
 }
 
@@ -82,22 +82,13 @@ int iq_network::get_weight()
         }
         *(_biascurrent + i) = 0;
     }
+
     fp = fopen("../inputs/Connection_Table_IQIF.txt", "r");
     if(fp == NULL) {
         printf("Connection_Table_IQIF.txt file not opened\n");
         return 1;
     }
-    /*
-    fscanf(fp, " %d", &_tau);
-    if(_tau >= 10) {
-        _f = (int) (log10(0.9) / log10((_tau-1)/(float) _tau));
-    }
-    else {
-        printf("tau = %d\n", _tau);
-        printf("error: synapse time constant cannot be less than 10!\n");
-        return 1;
-    }
-    */
+
     while(fscanf(fp, "%d %d %d %d", &i, &j, &temp, &temptwo) == 4) {
         *(_weight + _num_neurons*i + j) = temp;
         *(_tau + _num_neurons*i + j) = temptwo;
@@ -140,7 +131,6 @@ void iq_network::send_synapse()
             total_current += *(_current + _num_neurons*i + j);
         }
         (_neurons + j)->iq(total_current + *(_biascurrent + j));
-        //printf("neuron %d current: %d\n", j, total_current);
     }
 
     /* synapse exponential decay */
