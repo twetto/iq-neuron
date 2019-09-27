@@ -18,6 +18,7 @@ public:
     void send_synapse();
     void printfile(FILE **fp);
     void set_biascurrent(int neuron_index, int biascurrent);
+    int potential(int neuron_index);
 
 private:
     int linenum_neuronParameter();

@@ -18,7 +18,7 @@ int main()
     FILE** fp_iq = (FILE**) malloc(sizeof(FILE*) * iq_num_neurons);
 
     srand((unsigned) time(NULL));
-
+    
     for(i = 0; i < iq_num_neurons; i++) {
         sprintf(filename, "iq_output_%d.txt", i);
         fp_iq[i] = fopen(filename, "w");
@@ -55,7 +55,9 @@ int main()
         fclose(fp_iq[i]);
     }
     free(fp_iq);
-    
+
+    printf("%d\n", network_iq.potential(0));
+
     return 0;
 }
 

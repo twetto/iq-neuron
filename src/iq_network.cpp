@@ -94,9 +94,9 @@ int iq_network::get_weight()
         *(_tau + _num_neurons*i + j) = temptwo;
         if(temptwo >= 10) {
             *(_f + _num_neurons*i + j) = (int) (log10(0.9) / log10((temptwo-1)/(float) temptwo));
-            printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
         }
         else {
+            printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
             printf("error: synapse time constant cannot be less than 10!\n");
             return 1;
         }
@@ -112,7 +112,7 @@ int iq_network::num_neurons()
 
 void iq_network::send_synapse()
 {
-    int i, j, total_current;
+    int i, j, temp;
 
     /* accumulate individual synapse current */
     for(i = 0; i < _num_neurons; i++) {
@@ -126,21 +126,22 @@ void iq_network::send_synapse()
 
     /* accumulate and inject current into neurons, solving DE */
     for(j = 0; j < _num_neurons; j++) {
-        total_current = 0;
+        temp = 0;
         for(i = 0; i < _num_neurons; i++) {
-            total_current += *(_current + _num_neurons*i + j);
+            temp += *(_current + _num_neurons*i + j);
         }
-        (_neurons + j)->iq(total_current + *(_biascurrent + j));
+        (_neurons + j)->iq(temp + *(_biascurrent + j));
     }
 
     /* synapse exponential decay */
     for(i = 0; i < _num_neurons; i++) {
         for(j = 0; j < _num_neurons; j++) {
-            if(*(_n + _num_neurons*i + j) > *(_f + _num_neurons*i + j)) {
-                *(_n + _num_neurons*i + j) = 0;
-                *(_current + _num_neurons*i + j) = *(_current + _num_neurons*i + j) * 9 / 10;
+            temp = _num_neurons*i + j;
+            if(*(_n + temp) > *(_f + temp)) {
+                *(_n + temp) = 0;
+                *(_current + temp) = *(_current + temp) * 9 / 10;
             }
-            *(_n + _num_neurons*i + j) += 1;
+            *(_n + temp) += 1;
         }
     }
 
@@ -159,8 +160,23 @@ void iq_network::printfile(FILE **fp)
 
 void iq_network::set_biascurrent(int neuron_index, int biascurrent)
 {
-    _biascurrent[neuron_index] = biascurrent;
+    *(_biascurrent + neuron_index) = biascurrent;
     return;
 }
 
+int iq_network::potential(int neuron_index)
+{
+    return (_neurons + neuron_index)->potential();
+}
+
+extern "C"
+{
+    iq_network* iq_network_new() {return new iq_network();}
+    int iq_network_set_neurons(iq_network* network) {return network->set_neurons();}
+    int iq_network_get_weight(iq_network* network) {return network->get_weight();}
+    int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
+    void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
+    void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
+}
 

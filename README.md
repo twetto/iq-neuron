@@ -38,7 +38,7 @@ You can change the test bench in the [test bench file](inputs/testbench_IQIF.txt
 
 which means running the first 2000 steps of bias current 4, and relaxed during the last 1000 steps.
 
-I also have an [Izhikevich model](include/iz_network.h) for comparison. You need to change the [main code](src/main.cpp) to let it work though.
+I also have an [Izhikevich model](include/iz_network.h) for comparison. You need to change the [main code](src/main.cpp) to let it work though. You can also uncomment `add_library` in the [CMakeLists](CMakeLists.txt) to get a shared library binary.
 
 ![IQIF & Izhikevich performing WTA](WTA.png)
 
