@@ -110,21 +110,30 @@ int iq_network::num_neurons()
     return _num_neurons;
 }
 
-void iq_network::send_synapse()
+void iq_network::send_synapse(double &time_synapse, double &time_ode, double &time_decay)
 {
     int i, j, temp;
+    int *ptr, *pts;
+    clock_t start, end;
 
     /* accumulate individual synapse current */
+    start = clock();
     for(i = 0; i < _num_neurons; i++) {
         if((_neurons + i)->is_firing()) {
             //printf("neuron %d has fired!\n", i);
+            ptr = _current + _num_neurons*i;
+            pts = _weight + _num_neurons*i;
             for(j = 0; j < _num_neurons; j++) {
-                *(_current + _num_neurons*i + j) += *(_weight + _num_neurons*i + j);
+                //*(_current + _num_neurons*i + j) += *(_weight + num_neurons*i + j);
+                *(ptr + j) += *(pts + j);
             }
         }
     }
+    end = clock();
+    time_synapse += (double) (end - start) / CLOCKS_PER_SEC;
 
     /* accumulate and inject current into neurons, solving DE */
+    start = clock();
     for(j = 0; j < _num_neurons; j++) {
         temp = 0;
         for(i = 0; i < _num_neurons; i++) {
@@ -132,8 +141,11 @@ void iq_network::send_synapse()
         }
         (_neurons + j)->iq(temp + *(_biascurrent + j));
     }
+    end = clock();
+    time_ode += (double) (end - start) / CLOCKS_PER_SEC;
 
     /* synapse exponential decay */
+    start = clock();
     for(i = 0; i < _num_neurons; i++) {
         for(j = 0; j < _num_neurons; j++) {
             temp = _num_neurons*i + j;
@@ -144,6 +156,8 @@ void iq_network::send_synapse()
             *(_n + temp) += 1;
         }
     }
+    end = clock();
+    time_decay += (double) (end - start) / CLOCKS_PER_SEC;
 
     return;
 }
@@ -175,7 +189,7 @@ extern "C"
     int iq_network_set_neurons(iq_network* network) {return network->set_neurons();}
     int iq_network_get_weight(iq_network* network) {return network->get_weight();}
     int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
-    void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
+    void iq_network_send_synapse(iq_network* network, double time_synapse, double time_ode, double time_decay) {return network->send_synapse(time_synapse, time_ode, time_decay);}
     void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
 }

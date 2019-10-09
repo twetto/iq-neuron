@@ -15,7 +15,7 @@ public:
     int set_neurons();
     int get_weight();
     int num_neurons();
-    void send_synapse();
+    void send_synapse(double &time_synapse, double &time_ode, double &time_decay);
     void printfile(FILE **fp);
     void set_biascurrent(int neuron_index, int biascurrent);
     int potential(int neuron_index);
