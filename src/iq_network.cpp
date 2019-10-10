@@ -113,7 +113,7 @@ int iq_network::num_neurons()
 void iq_network::send_synapse(double &time_synapse, double &time_ode, double &time_decay)
 {
     int i, j, temp;
-    int *ptr, *pts;
+    int *ptr, *pts, *ptt;
     clock_t start, end;
 
     /* accumulate individual synapse current */
@@ -124,7 +124,6 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
             ptr = _current + _num_neurons*i;
             pts = _weight + _num_neurons*i;
             for(j = 0; j < _num_neurons; j++) {
-                //*(_current + _num_neurons*i + j) += *(_weight + num_neurons*i + j);
                 *(ptr + j) += *(pts + j);
             }
         }
@@ -136,8 +135,9 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
     start = clock();
     for(j = 0; j < _num_neurons; j++) {
         temp = 0;
+        ptr = _current + j;
         for(i = 0; i < _num_neurons; i++) {
-            temp += *(_current + _num_neurons*i + j);
+            temp += *(ptr + _num_neurons*i);
         }
         (_neurons + j)->iq(temp + *(_biascurrent + j));
     }
@@ -146,15 +146,14 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
 
     /* synapse exponential decay */
     start = clock();
-    for(i = 0; i < _num_neurons; i++) {
-        for(j = 0; j < _num_neurons; j++) {
-            temp = _num_neurons*i + j;
-            if(*(_n + temp) > *(_f + temp)) {
-                *(_n + temp) = 0;
-                *(_current + temp) = *(_current + temp) * 9 / 10;
-            }
-            *(_n + temp) += 1;
+    temp = _num_neurons * _num_neurons;
+    for(i = 0; i < temp; i++) {
+        if(*(_n + i) > *(_f + i)) {
+            *(_n + i) = 0;
+            (*(_current + i)) *= 9;
+            (*(_current + i)) /= 10;
         }
+        (*(_n + i))++;
     }
     end = clock();
     time_decay += (double) (end - start) / CLOCKS_PER_SEC;
