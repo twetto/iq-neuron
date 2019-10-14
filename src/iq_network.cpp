@@ -10,7 +10,8 @@ iq_network::iq_network()
     _f = new int[_num_neurons * _num_neurons]();
     _n = new int[_num_neurons * _num_neurons]();
     _weight = new int[_num_neurons * _num_neurons]();
-    _current = new int[_num_neurons * _num_neurons]();
+    _scurrent = new int[_num_neurons * _num_neurons]();
+    _ncurrent = new int[_num_neurons]();
     _biascurrent = new int[_num_neurons]();
 
     get_weight();
@@ -21,7 +22,8 @@ iq_network::iq_network()
 iq_network::~iq_network()
 {
     delete[] _weight;
-    delete[] _current;
+    delete[] _scurrent;
+    delete[] _ncurrent;
     delete[] _biascurrent;
     delete[] _tau;
     delete[] _f;
@@ -74,13 +76,14 @@ int iq_network::get_weight()
     FILE *fp;
     for(i = 0; i < _num_neurons; i++) {
         for(j = 0; j < _num_neurons; j++) {
-            *(_current + _num_neurons*i + j) = 0;
+            *(_scurrent + _num_neurons*i + j) = 0;
             *(_weight + _num_neurons*i + j) = 0;
             *(_tau + _num_neurons*i + j) = 0;
             *(_f + _num_neurons*i + j) = 0;
             *(_n + _num_neurons*i + j) = 0;
         }
         *(_biascurrent + i) = 0;
+        *(_ncurrent + i) = 0;
     }
 
     fp = fopen("../inputs/Connection_Table_IQIF.txt", "r");
@@ -121,10 +124,12 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
     for(i = 0; i < _num_neurons; i++) {
         if((_neurons + i)->is_firing()) {
             //printf("neuron %d has fired!\n", i);
-            ptr = _current + _num_neurons*i;
+            ptr = _scurrent + _num_neurons*i;
             pts = _weight + _num_neurons*i;
             for(j = 0; j < _num_neurons; j++) {
+                //*(_scurrent + _num_neurons*i + j) += *(_weight + _num_neurons*i + j);
                 *(ptr + j) += *(pts + j);
+                //*(_ncurrent + j) += *(ptr + j);
             }
         }
     }
@@ -135,11 +140,13 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
     start = clock();
     for(j = 0; j < _num_neurons; j++) {
         temp = 0;
-        ptr = _current + j;
+        ptr = _scurrent + j;
         for(i = 0; i < _num_neurons; i++) {
             temp += *(ptr + _num_neurons*i);
         }
         (_neurons + j)->iq(temp + *(_biascurrent + j));
+        //(_neurons + j)->iq(*(_ncurrent + j) + *(_biascurrent + j));
+        //*(_ncurrent + j) = 0;
     }
     end = clock();
     time_ode += (double) (end - start) / CLOCKS_PER_SEC;
@@ -150,8 +157,8 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
     for(i = 0; i < temp; i++) {
         if(*(_n + i) > *(_f + i)) {
             *(_n + i) = 0;
-            (*(_current + i)) *= 9;
-            (*(_current + i)) /= 10;
+            (*(_scurrent + i)) *= 9;
+            (*(_scurrent + i)) /= 10;
         }
         (*(_n + i))++;
     }
