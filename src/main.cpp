@@ -18,7 +18,6 @@ int main(void)
     double time_total;
     double time_synapse = 0;
     double time_ode = 0;
-    double time_decay = 0;
 
     int i, j;
     iq_network network_iq;
@@ -34,12 +33,14 @@ int main(void)
         //fp[i] = fopen(filename, "w");
         network_iq.set_biascurrent(i, 4);
     }
+
     /* send synapse */
     for(i = 0; i < 100000; i++) {
         //printf("%d\n", i);
-        network_iq.send_synapse(time_synapse, time_ode, time_decay);
+        network_iq.send_synapse(time_synapse, time_ode);
         //network_iq.printfile(fp);
     }
+
     /*
     for(i = 0; i < iq_num_neurons; i++) {
         fclose(fp[i]);
@@ -51,7 +52,6 @@ int main(void)
     printf("total execution time: %f sec\n", time_total);
     printf("synapse accumulate time: %f sec\n", time_synapse);
     printf("inject current & ODE time: %f sec\n", time_ode);
-    printf("synapse decay time: %f sec\n", time_decay);
     return 0;
 }
 
