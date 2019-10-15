@@ -116,48 +116,34 @@ int iq_network::num_neurons()
 void iq_network::send_synapse(double &time_synapse, double &time_ode, double &time_decay)
 {
     int i, j, temp;
-    int *ptr, *pts, *ptt;
+    int *ptr, *pts;
     clock_t start, end;
 
     /* accumulate individual synapse current */
     start = clock();
     for(i = 0; i < _num_neurons; i++) {
+        ptr = _scurrent + _num_neurons*i;
         if((_neurons + i)->is_firing()) {
-            //printf("neuron %d has fired!\n", i);
-            ptr = _scurrent + _num_neurons*i;
             pts = _weight + _num_neurons*i;
             for(j = 0; j < _num_neurons; j++) {
-                //*(_scurrent + _num_neurons*i + j) += *(_weight + _num_neurons*i + j);
                 *(ptr + j) += *(pts + j);
+                *(_ncurrent + j) += *(ptr + j);
             }
         }
-        /*
-        ptr = _scurrent + _num_neurons*i;
-        pts = _weight + _num_neurons*i;
-        for(j = 0; j < _num_neurons; j++) {
-            if((_neurons + i)->is_firing()) {
-                *(ptr + j) += *(pts + j);
+        else {
+            for(j = 0; j < _num_neurons; j++) {
+                *(_ncurrent + j) += *(ptr + j);
             }
-            *(_ncurrent + j) += *(ptr + j);
         }
-        */
     }
     end = clock();
     time_synapse += (double) (end - start) / CLOCKS_PER_SEC;
 
     /* accumulate and inject current into neurons, solving DE */
     start = clock();
-    for(j = 0; j < _num_neurons; j++) {
-        temp = 0;
-        ptr = _scurrent + j;
-        for(i = 0; i < _num_neurons; i++) {
-            temp += *(ptr + _num_neurons*i);
-        }
-        (_neurons + j)->iq(temp + *(_biascurrent + j));
-        /*
-        (_neurons + j)->iq(*(_ncurrent + j) + *(_biascurrent + j));
-        *(_ncurrent + j) = 0;
-        */
+    for(i = 0; i < _num_neurons; i++) {
+        (_neurons + i)->iq(*(_ncurrent + i) + *(_biascurrent + i));
+        *(_ncurrent + i) = 0;
     }
     end = clock();
     time_ode += (double) (end - start) / CLOCKS_PER_SEC;
@@ -168,8 +154,7 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
     for(i = 0; i < temp; i++) {
         if(*(_n + i) > *(_f + i)) {
             *(_n + i) = 0;
-            (*(_scurrent + i)) *= 9;
-            (*(_scurrent + i)) /= 10;
+            *(_scurrent + i) = *(_scurrent + i) * 9 / 10;
         }
         (*(_n + i))++;
     }
