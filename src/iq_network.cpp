@@ -129,9 +129,18 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
             for(j = 0; j < _num_neurons; j++) {
                 //*(_scurrent + _num_neurons*i + j) += *(_weight + _num_neurons*i + j);
                 *(ptr + j) += *(pts + j);
-                //*(_ncurrent + j) += *(ptr + j);
             }
         }
+        /*
+        ptr = _scurrent + _num_neurons*i;
+        pts = _weight + _num_neurons*i;
+        for(j = 0; j < _num_neurons; j++) {
+            if((_neurons + i)->is_firing()) {
+                *(ptr + j) += *(pts + j);
+            }
+            *(_ncurrent + j) += *(ptr + j);
+        }
+        */
     }
     end = clock();
     time_synapse += (double) (end - start) / CLOCKS_PER_SEC;
@@ -145,8 +154,10 @@ void iq_network::send_synapse(double &time_synapse, double &time_ode, double &ti
             temp += *(ptr + _num_neurons*i);
         }
         (_neurons + j)->iq(temp + *(_biascurrent + j));
-        //(_neurons + j)->iq(*(_ncurrent + j) + *(_biascurrent + j));
-        //*(_ncurrent + j) = 0;
+        /*
+        (_neurons + j)->iq(*(_ncurrent + j) + *(_biascurrent + j));
+        *(_ncurrent + j) = 0;
+        */
     }
     end = clock();
     time_ode += (double) (end - start) / CLOCKS_PER_SEC;
