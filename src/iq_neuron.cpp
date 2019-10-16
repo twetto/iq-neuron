@@ -101,20 +101,8 @@ int iq_neuron::spike_count()
 float iq_neuron::spike_rate()
 {
     float r = _spike_count / (float) t_neuron;
-    reset_time();
-    reset_spike_count();
-    return r;
-}
-
-void iq_neuron::reset_time()
-{
     t_neuron = 0;
-    return;
-}
-
-void iq_neuron::reset_spike_count()
-{
     _spike_count = 0;
-    return;
+    return r;
 }
 

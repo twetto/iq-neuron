@@ -22,8 +22,8 @@ int main(void)
     //iz_network network_iz;
     int iq_num_neurons = network_iq.num_neurons();
     //int iz_num_neurons = network_iz.num_neurons();
-    //char filename[] = "iq_output_number.txt";
-    char filename[] = "iz_output_p_number.txt";
+    char filename[] = "iq_output_number.txt";
+    //char filename[] = "iz_output_p_number.txt";
     //FILE** fp = (FILE**) malloc(sizeof(FILE*) * iq_num_neurons);
     //FILE** fp_p = (FILE**) malloc(sizeof(FILE*) * iz_num_neurons);
     //FILE** fp_a = (FILE**) malloc(sizeof(FILE*) * iz_num_neurons);

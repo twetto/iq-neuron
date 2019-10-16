@@ -177,6 +177,16 @@ int iq_network::potential(int neuron_index)
     return (_neurons + neuron_index)->potential();
 }
 
+int iq_network::spike_count(int neuron_index)
+{
+    return (_neurons + neuron_index)->spike_count();
+}
+
+float iq_network::spike_rate(int neuron_index)
+{
+    return (_neurons + neuron_index)->spike_rate();
+}
+
 extern "C"
 {
     iq_network* iq_network_new() {return new iq_network();}
@@ -186,5 +196,7 @@ extern "C"
     void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
     void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
+    int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
+    float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
 }
 
