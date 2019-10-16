@@ -43,26 +43,6 @@ void iq_neuron::set(int rest, int threshold,
     return;
 }
 
-void iq_neuron::iq()
-{
-    int f;
-
-    if(x < f_min)
-        f = _a * (_rest - x);
-    else
-        f = _b * (x - _threshold);
-    x += f/10 + rand()%_noise-_noise/2;
-    _is_firing = false;
-    if(x > MAX_POTENTIAL) {
-        _spike_count++;
-        _is_firing = true;
-        x = _reset;
-    }
-    //else if(x < 0) x = 0;
-    t_neuron++;
-    return;
-}
-
 void iq_neuron::iq(int external_current)
 {
     int f;
