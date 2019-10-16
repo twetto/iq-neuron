@@ -95,7 +95,9 @@ bool iq_neuron::is_firing()
 
 int iq_neuron::spike_count()
 {
-    return _spike_count;
+    int count = _spike_count;
+    _spike_count = 0;
+    return count;
 }
 
 float iq_neuron::spike_rate()
