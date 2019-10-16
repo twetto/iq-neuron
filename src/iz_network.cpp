@@ -8,7 +8,8 @@ iz_network::iz_network()
     _neurons = new iz_neuron[_num_neurons];
     _tau = new int[_num_neurons * _num_neurons]();
     _weight = new float[_num_neurons * _num_neurons]();
-    _current = new float[_num_neurons * _num_neurons]();
+    _scurrent = new float[_num_neurons * _num_neurons]();
+    _ncurrent = new float[_num_neurons]();
     _biascurrent = new float[_num_neurons]();
 
     get_weight();
@@ -19,7 +20,8 @@ iz_network::iz_network()
 iz_network::~iz_network()
 {
     delete[] _weight;
-    delete[] _current;
+    delete[] _scurrent;
+    delete[] _ncurrent;
     delete[] _biascurrent;
     delete[] _tau;
     delete[] _neurons;
@@ -73,7 +75,7 @@ int iz_network::get_weight()
     FILE *fp;
     for(i = 0; i < _num_neurons; i++) {
         for(j = 0; j < _num_neurons; j++) {
-            *(_current + _num_neurons*i + j) = 0;
+            *(_scurrent + _num_neurons*i + j) = 0;
             *(_weight + _num_neurons*i + j) = 0;
             *(_tau + _num_neurons*i + j) = 1;
         }
@@ -106,33 +108,34 @@ int iz_network::num_neurons()
 void iz_network::send_synapse()
 {
     int i, j, temp;
+    int *ptt;
+    float *pts, *ptw;
     float total_current;
 
-    /* accumulate individual synapse current */
+    /* accumulating/decaying synapse current */
     for(i = 0; i < _num_neurons; i++) {
+        pts = _scurrent + _num_neurons*i;
+        ptt = _tau + _num_neurons*i;
         if((_neurons + i)->is_firing()) {
-            //printf("neuron %d has fired!\n", i);
+            ptw = _weight + _num_neurons*i;
             for(j = 0; j < _num_neurons; j++) {
-                *(_current + _num_neurons*i + j) += *(_weight + _num_neurons*i + j);
+                *(pts + j) += *(ptw + j);
+                *(_ncurrent + j) += *(pts + j);
+                *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+            }
+        }
+        else {
+            for(j = 0; j < _num_neurons; j++) {
+                *(_ncurrent + j) += *(pts + j);
+                *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
             }
         }
     }
 
-    /* accumulate and inject current into neurons, solving DE */
-    for(j = 0; j < _num_neurons; j++) {
-        total_current = 0;
-        for(i = 0; i < _num_neurons; i++) {
-            total_current += *(_current + _num_neurons*i + j);
-        }
-        (_neurons + j)->iz_rk4(total_current + *(_biascurrent + j));
-    }
-
-    /* synapse exponential decay */
+    /* solving DE, reset post-syn current */
     for(i = 0; i < _num_neurons; i++) {
-        for(j = 0; j < _num_neurons; j++) {
-            temp = _num_neurons*i + j;
-            *(_current + temp) = *(_current + temp) * (*(_tau + temp) - 1) / *(_tau + temp);
-        }
+        (_neurons + i)->iz_rk4(*(_ncurrent + i) + *(_biascurrent + i));
+        *(_ncurrent + i) = 0;
     }
 
     return;

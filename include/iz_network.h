@@ -25,7 +25,7 @@ private:
     int linenum_neuronParameter();
     int _num_neurons;
     int *_tau;
-    float *_weight, *_current, *_biascurrent;
+    float *_weight, *_scurrent, *_ncurrent, *_biascurrent;
     iz_neuron *_neurons;
 
 };
