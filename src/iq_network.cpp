@@ -115,8 +115,8 @@ int iq_network::num_neurons()
 
 void iq_network::send_synapse()
 {
-    int i, j;
-    int *pts, *ptw, *ptn, *ptf;
+    static int i, j;
+    static int *pts, *ptw, *ptn, *ptf;
 
     /* accumulating/decaying synapse current */
     for(i = 0; i < _num_neurons; i++) {
