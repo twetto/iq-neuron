@@ -6,6 +6,7 @@
 #include <random>
 #include <time.h>
 #include <math.h>
+#include <omp.h>
 
 class iq_network
 {
@@ -21,6 +22,8 @@ public:
     int potential(int neuron_index);
     int spike_count(int neuron_index);
     float spike_rate(int neuron_index);
+
+    void set_num_threads(int num_threads);
 
 private:
     int linenum_neuronParameter();

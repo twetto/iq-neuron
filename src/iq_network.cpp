@@ -115,10 +115,11 @@ int iq_network::num_neurons()
 
 void iq_network::send_synapse()
 {
-    static int i, j;
-    static int *pts, *ptw, *ptn, *ptf;
+    int i, j;
+    int *pts, *ptw, *ptn, *ptf;
 
     /* accumulating/decaying synapse current */
+    /*
     for(i = 0; i < _num_neurons; i++) {
         pts = _scurrent + _num_neurons*i;
         ptn = _n + _num_neurons*i;
@@ -143,6 +144,45 @@ void iq_network::send_synapse()
                     *(pts + j) = *(pts + j) * 9 / 10;
                 }
                 (*(ptn + j))++;
+            }
+        }
+    }
+    */
+    #pragma omp parallel
+    {
+        int ncurrent_private[_num_neurons] = {0};
+        #pragma omp for
+        for(int i = 0; i < _num_neurons; i++) {
+            int *pts = _scurrent + _num_neurons*i;
+            int *ptn = _n + _num_neurons*i;
+            int *ptf = _f + _num_neurons*i;
+            if((_neurons + i)->is_firing()) {
+                int *ptw = _weight + _num_neurons*i;
+                for(int j = 0; j < _num_neurons; j++) {
+                    *(pts + j) += *(ptw + j);
+                    ncurrent_private[j] += *(pts + j);
+                    if(*(ptn + j) > *(ptf + j)) {
+                        *(ptn + j) = 0;
+                        *(pts + j) = *(pts + j) * 9 / 10;
+                    }
+                    (*(ptn + j))++;
+                }
+            }
+            else {
+                for(int j = 0; j < _num_neurons; j++) {
+                    ncurrent_private[j] += *(pts + j);
+                    if(*(ptn + j) > *(ptf + j)) {
+                        *(ptn + j) = 0;
+                        *(pts + j) = *(pts + j) * 9 / 10;
+                    }
+                    (*(ptn + j))++;
+                }
+            }
+        }
+        #pragma omp critical
+        {
+            for(int i = 0; i < _num_neurons; i++) {
+                *(_ncurrent + i) += ncurrent_private[i];
             }
         }
     }
@@ -187,6 +227,12 @@ float iq_network::spike_rate(int neuron_index)
     return (_neurons + neuron_index)->spike_rate();
 }
 
+void iq_network::set_num_threads(int num_threads)
+{
+    omp_set_num_threads(num_threads);
+    return;
+}
+
 extern "C"
 {
     iq_network* iq_network_new() {return new iq_network();}
@@ -198,5 +244,6 @@ extern "C"
     int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
     int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
+    void iq_network_set_num_threads(iq_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }
 

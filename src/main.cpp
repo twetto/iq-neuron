@@ -29,6 +29,7 @@ int main(void)
     //FILE** fp_a = (FILE**) malloc(sizeof(FILE*) * iz_num_neurons);
 
     srand((unsigned) time(NULL));
+    network_iq.set_num_threads(2);
 
     /* set bias current */
     for(i = 0; i < iq_num_neurons; i++) {
