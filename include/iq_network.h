@@ -32,6 +32,8 @@ private:
     int *_weight, *_scurrent, *_ncurrent, *_biascurrent;
     iq_neuron *_neurons;
 
+    int _num_threads = 1;
+
 };
 
 #endif

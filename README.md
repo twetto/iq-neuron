@@ -16,7 +16,7 @@
 mkdir build && cd build
 cmake ..
 make
-./main < ../inputs/testbench_IQIF.txt
+./IQIF
 ../utils/iq_plot.py
 ```
 
@@ -24,21 +24,7 @@ You can change the synaptic weights in the [Connection Table](inputs/Connection_
 
 You can change the neuron parameters in the [neuron parameter file](inputs/neuronParameter_IQIF.txt). The parameters in each lines are `neuron index, rest potential, threshold potential, reset potential, noise strength` respectively.
 
-You can change the test bench in the [test bench file](inputs/testbench_IQIF.txt). By default there are two neurons inhibiting each others to perform the winner-take-all behavior:
-
-```
-2000
-    0 4
-    1 4
-    -1
-1000
-    0 0
-    1 0
-    -1
--1
-```
-
-which means running the first 2000 steps of bias current 4, and relaxed during the last 1000 steps.
+It is recommended to use multithreading only when number of neurons is large (>100 for example).
 
 I also have an [Izhikevich model](include/iz_network.h) for comparison. You need to change the [main code](src/main.cpp) to let it work though. You can also uncomment `add_library` in the [CMakeLists](CMakeLists.txt) to get a shared library binary.
 
