@@ -2,9 +2,11 @@
 
 ## Buildtime Dependencies:
 
-* gcc
+* gcc (C++11)
 
-* cmake
+* OpenMP >= 4.5
+
+* cmake >= 3.9
 
 * python 3 or 2
 
