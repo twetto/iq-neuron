@@ -119,7 +119,7 @@ void iq_network::send_synapse()
     if(_num_threads > 1) {
         #pragma omp parallel
         {
-            int ncurrent_private[_num_neurons] = {0};
+            int *ncurrent_private = new int[_num_neurons]();
             #pragma omp for
             for(int i = 0; i < _num_neurons; i++) {
                 int *pts = _scurrent + _num_neurons*i;

@@ -108,18 +108,11 @@ int iz_network::num_neurons()
 
 void iz_network::send_synapse()
 {
-    /*
-    int i, j, temp;
-    int *ptt;
-    float *pts, *ptw;
-    float total_current;
-    */
-
     /* accumulating/decaying synapse current */
     if(_num_threads > 1) {
         #pragma omp parallel
         {
-            float ncurrent_private[_num_neurons] = {0};
+            float *ncurrent_private = new float[_num_neurons]();
             #pragma omp for
             for(int i = 0; i < _num_neurons; i++) {
                 float *pts = _scurrent + _num_neurons*i;

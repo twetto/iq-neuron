@@ -29,7 +29,7 @@ int main(void)
     //FILE** fp_a = (FILE**) malloc(sizeof(FILE*) * iz_num_neurons);
 
     srand((unsigned) time(NULL));
-    network_iq.set_num_threads(1);
+    //network_iq.set_num_threads(1);
     //network_iz.set_num_threads(1);
 
     /* set bias current */
@@ -45,7 +45,7 @@ int main(void)
     }
 
     /* send synapse */
-    for(i = 0; i < 1000000; i++) {
+    for(i = 0; i < 5000; i++) {
         //printf("%d\n", i);
         network_iq.send_synapse();
         //network_iz.send_synapse();
