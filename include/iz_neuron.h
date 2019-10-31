@@ -18,8 +18,6 @@ public:
     bool is_firing();
     int spike_count();
     float spike_rate();
-    void reset_time();
-    void reset_spike_count();
 
 private:
     void funca(float &fa, const float I, const float dtt,

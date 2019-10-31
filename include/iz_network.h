@@ -6,6 +6,7 @@
 #include <random>
 #include <time.h>
 #include <math.h>
+#include <omp.h>
 
 class iz_network
 {
@@ -20,6 +21,9 @@ public:
     void set_biascurrent(int neuron_index, float biascurrent);
     float potential(int neuron_index);
     float adaptive_term(int neuron_index);
+    int spike_count(int neuron_index);
+    float spike_rate(int neuron_index);
+    void set_num_threads(int num_threads);
 
 private:
     int linenum_neuronParameter();
@@ -27,10 +31,8 @@ private:
     int *_tau;
     float *_weight, *_scurrent, *_ncurrent, *_biascurrent;
     iz_neuron *_neurons;
-
+    int _num_threads = 1;
 };
-
-
 
 #endif
 

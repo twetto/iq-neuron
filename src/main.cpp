@@ -22,7 +22,7 @@ int main(void)
     //iz_network network_iz;
     int iq_num_neurons = network_iq.num_neurons();
     //int iz_num_neurons = network_iz.num_neurons();
-    char filename[] = "iq_output_number.txt";
+    //char filename[] = "iq_output_number.txt";
     //char filename[] = "iz_output_p_number.txt";
     //FILE** fp = (FILE**) malloc(sizeof(FILE*) * iq_num_neurons);
     //FILE** fp_p = (FILE**) malloc(sizeof(FILE*) * iz_num_neurons);
@@ -30,6 +30,7 @@ int main(void)
 
     srand((unsigned) time(NULL));
     network_iq.set_num_threads(1);
+    //network_iz.set_num_threads(1);
 
     /* set bias current */
     for(i = 0; i < iq_num_neurons; i++) {
@@ -44,8 +45,8 @@ int main(void)
     }
 
     /* send synapse */
-    for(i = 0; i < 100000; i++) {
-        printf("%d\n", i);
+    for(i = 0; i < 1000000; i++) {
+        //printf("%d\n", i);
         network_iq.send_synapse();
         //network_iz.send_synapse();
         //network_iq.printfile(fp);

@@ -22,7 +22,6 @@ public:
     int potential(int neuron_index);
     int spike_count(int neuron_index);
     float spike_rate(int neuron_index);
-
     void set_num_threads(int num_threads);
 
 private:
@@ -31,9 +30,7 @@ private:
     int *_tau, *_f, *_n;
     int *_weight, *_scurrent, *_ncurrent, *_biascurrent;
     iq_neuron *_neurons;
-
     int _num_threads = 1;
-
 };
 
 #endif

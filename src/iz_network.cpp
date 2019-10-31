@@ -80,6 +80,7 @@ int iz_network::get_weight()
             *(_tau + _num_neurons*i + j) = 1;
         }
         *(_biascurrent + i) = 0;
+        *(_ncurrent + i) = 0;
     }
     fp = fopen("../inputs/Connection_Table_Izhikevich.txt", "r");
     if(fp == NULL) {
@@ -107,37 +108,71 @@ int iz_network::num_neurons()
 
 void iz_network::send_synapse()
 {
+    /*
     int i, j, temp;
     int *ptt;
     float *pts, *ptw;
     float total_current;
+    */
 
     /* accumulating/decaying synapse current */
-    for(i = 0; i < _num_neurons; i++) {
-        pts = _scurrent + _num_neurons*i;
-        ptt = _tau + _num_neurons*i;
-        if((_neurons + i)->is_firing()) {
-            ptw = _weight + _num_neurons*i;
-            for(j = 0; j < _num_neurons; j++) {
-                *(pts + j) += *(ptw + j);
-                *(_ncurrent + j) += *(pts + j);
-                *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+    if(_num_threads > 1) {
+        #pragma omp parallel
+        {
+            float ncurrent_private[_num_neurons] = {0};
+            #pragma omp for
+            for(int i = 0; i < _num_neurons; i++) {
+                float *pts = _scurrent + _num_neurons*i;
+                int *ptt = _tau + _num_neurons*i;
+                if((_neurons + i)->is_firing()) {
+                    float *ptw = _weight + _num_neurons*i;
+                    for(int j = 0; j < _num_neurons; j++) {
+                        *(pts + j) += *(ptw + j);
+                        ncurrent_private[j] += *(pts + j);
+                        *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+                    }
+                }
+                else {
+                    for(int j = 0; j < _num_neurons; j++) {
+                        ncurrent_private[j] += *(pts + j);
+                        *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+                    }
+                }
+            }
+            #pragma omp critical
+            {
+                for(int i = 0; i < _num_neurons; i++) {
+                    *(_ncurrent + i) += ncurrent_private[i];
+                }
             }
         }
-        else {
-            for(j = 0; j < _num_neurons; j++) {
-                *(_ncurrent + j) += *(pts + j);
-                *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+    }
+    else {
+        for(int i = 0; i < _num_neurons; i++) {
+            float *pts = _scurrent + _num_neurons*i;
+            int *ptt = _tau + _num_neurons*i;
+            if((_neurons + i)->is_firing()) {
+                float *ptw = _weight + _num_neurons*i;
+                for(int j = 0; j < _num_neurons; j++) {
+                    *(pts + j) += *(ptw + j);
+                    *(_ncurrent + j) += *(pts + j);
+                    *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+                }
+            }
+            else {
+                for(int j = 0; j < _num_neurons; j++) {
+                    *(_ncurrent + j) += *(pts + j);
+                    *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+                }
             }
         }
     }
 
     /* solving DE, reset post-syn current */
-    for(i = 0; i < _num_neurons; i++) {
-        (_neurons + i)->iz_rk4(*(_ncurrent + i) + *(_biascurrent + i));
+    for(int i = 0; i < _num_neurons; i++) {
+        (_neurons + i)->iz_euler(*(_ncurrent + i) + *(_biascurrent + i));
         *(_ncurrent + i) = 0;
     }
-
     return;
 }
 
@@ -170,6 +205,23 @@ float iz_network::adaptive_term(int neuron_index)
     return (_neurons + neuron_index)->adaptive_term();
 }
 
+int iz_network::spike_count(int neuron_index)
+{
+    return (_neurons + neuron_index)->spike_count();
+}
+
+float iz_network::spike_rate(int neuron_index)
+{
+    return (_neurons + neuron_index)->spike_rate();
+}
+
+void iz_network::set_num_threads(int num_threads)
+{
+    _num_threads = num_threads;
+    omp_set_num_threads(num_threads);
+    return;
+}
+
 extern "C"
 {
     iz_network* iz_network_new() {return new iz_network();}
@@ -180,5 +232,8 @@ extern "C"
     void iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     float iz_network_potential(iz_network* network, int neuron_index) {return network->potential(neuron_index);}
     float iz_network_adaptive_term(iz_network* network, int neuron_index) {return network->adaptive_term(neuron_index);}
+    int iz_network_spike_count(iz_network* network, int neuron_index) {return network->spike_count(neuron_index);}
+    float iz_network_spike_rate(iz_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
+    void iz_network_set_num_threads(iz_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }
 

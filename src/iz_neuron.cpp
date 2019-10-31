@@ -24,7 +24,6 @@ void iz_neuron::set(float a, float b, float c, float d, float k,
     _v = rest;
     _u = 0;
     _is_set = true;
-    //printf("a = %f\nb = %f\nc = %f\nd = %f\nk = %f\nrest = %f\nthreshold = %f\nnoise = %d\n", _a, _b, _c, _d, _k, _rest, _threshold, _noise);
     return;
 }
 
@@ -54,7 +53,6 @@ void iz_neuron::iz_rk4(float external_current)
         _is_firing = true;
         _v = _c;
         _u += _d;
-        //printf("firing...\n");
     }
     //else if(_v < 0) _v = 0;
 
@@ -97,27 +95,17 @@ bool iz_neuron::is_firing()
 
 int iz_neuron::spike_count()
 {
-    return _spike_count;
+    int count = _spike_count;
+    _spike_count = 0;
+    return count;
 }
 
 float iz_neuron::spike_rate()
 {
     float r = _spike_count / (float) t_neuron;
-    reset_time();
-    reset_spike_count();
-    return r;
-}
-
-void iz_neuron::reset_time()
-{
     t_neuron = 0;
-    return;
-}
-
-void iz_neuron::reset_spike_count()
-{
     _spike_count = 0;
-    return;
+    return r;
 }
 
 void iz_neuron::funca(float &fa, const float I, const float dtt,
