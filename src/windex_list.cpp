@@ -4,15 +4,13 @@ using namespace std;
 
 windex_node::windex_node()
 {
-    _pre = 0;
     _post = 0;
     next = NULL;
     return;
 }
 
-windex_node::windex_node(int pre, int post)
+windex_node::windex_node(int post)
 {
-    _pre = pre;
     _post = post;
     next = NULL;
     return;
@@ -24,9 +22,9 @@ windex_list::windex_list()
     return;
 }
 
-void windex_list::push_front(int pre, int post)
+void windex_list::push_front(int post)
 {
-    windex_node *newNode = new windex_node(pre, post);
+    windex_node *newNode = new windex_node(post);
     newNode->next = first;
     first = newNode;
     return;
