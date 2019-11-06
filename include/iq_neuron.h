@@ -24,13 +24,13 @@ public:
     int spike_count();
     float spike_rate();
 
+    friend class iq_network;
+
 private:
     int t_neuron;                                   // Iterator of timestep
     int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
     int x , f_min, _spike_count = 0;
     bool _is_set = false, _is_firing = false;
-
-    friend class iq_network;
 };
 
 #endif

@@ -10,27 +10,27 @@
 
 class iq_network
 {
-    public:
-        iq_network();
-        ~iq_network();
-        int set_neurons();
-        int get_weight();
-        int num_neurons();
-        void send_synapse();
-        void printfile(FILE **fp);
-        void set_biascurrent(int neuron_index, int biascurrent);
-        int potential(int neuron_index);
-        int spike_count(int neuron_index);
-        float spike_rate(int neuron_index);
-        void set_num_threads(int num_threads);
+public:
+    iq_network();
+    ~iq_network();
+    int set_neurons();
+    int get_weight();
+    int num_neurons();
+    void send_synapse();
+    void printfile(FILE **fp);
+    void set_biascurrent(int neuron_index, int biascurrent);
+    int potential(int neuron_index);
+    int spike_count(int neuron_index);
+    float spike_rate(int neuron_index);
+    void set_num_threads(int num_threads);
 
-    private:
-        int linenum_neuronParameter();
-        int _num_neurons;
-        int *_tau, *_f, *_n;
-        int *_weight, *_scurrent, *_ncurrent, *_biascurrent;
-        iq_neuron *_neurons;
-        int _num_threads = 1;
+private:
+    int linenum_neuronParameter();
+    int _num_neurons;
+    int *_tau, *_f, *_n;
+    int *_weight, *_scurrent, *_ncurrent, *_biascurrent;
+    iq_neuron *_neurons;
+    int _num_threads = 1;
 };
 
 #endif
