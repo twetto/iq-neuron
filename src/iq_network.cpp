@@ -125,7 +125,8 @@ void iq_network::send_synapse()
                 int *pts = _scurrent + _num_neurons*i;
                 int *ptn = _n + _num_neurons*i;
                 int *ptf = _f + _num_neurons*i;
-                if((_neurons + i)->is_firing()) {
+                //if((_neurons + i)->is_firing()) {
+                if((_neurons + i)->_is_firing) {
                     int *ptw = _weight + _num_neurons*i;
                     for(int j = 0; j < _num_neurons; j++) {
                         *(pts + j) += *(ptw + j);
@@ -161,7 +162,8 @@ void iq_network::send_synapse()
             int *pts = _scurrent + _num_neurons*i;
             int *ptn = _n + _num_neurons*i;
             int *ptf = _f + _num_neurons*i;
-            if((_neurons + i)->is_firing()) {
+            //if((_neurons + i)->is_firing()) {
+            if((_neurons + i)->_is_firing) {
                 int *ptw = _weight + _num_neurons*i;
                 for(int j = 0; j < _num_neurons; j++) {
                     *(pts + j) += *(ptw + j);

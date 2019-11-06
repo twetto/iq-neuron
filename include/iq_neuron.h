@@ -7,6 +7,8 @@
 
 #define MAX_POTENTIAL 256
 
+class iq_network;
+
 class iq_neuron
 {
 public:
@@ -27,6 +29,8 @@ private:
     int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
     int x , f_min, _spike_count = 0;
     bool _is_set = false, _is_firing = false;
+
+    friend class iq_network;
 };
 
 #endif
