@@ -14,13 +14,13 @@ using namespace std;
 int main(void)
 {
     clock_t start, end;
-    start = clock();
     double time_total;
 
     int i, j;
     iq_network network_iq;
     //iz_network network_iz;
     int iq_num_neurons = network_iq.num_neurons();
+    start = clock();
     //int iz_num_neurons = network_iz.num_neurons();
     //char filename[] = "iq_output_number.txt";
     //char filename[] = "iz_output_p_number.txt";
@@ -36,6 +36,7 @@ int main(void)
     for(i = 0; i < iq_num_neurons; i++) {
     //for(i = 0; i < iz_num_neurons; i++) {
         //sprintf(filename, "iq_output_%d.txt", i);
+        //fp[i] = fopen(filename, "w");
         //sprintf(filename, "iz_output_p_%d.txt", i);
         //fp_p[i] = fopen(filename, "w");
         //sprintf(filename, "iz_output_a_%d.txt", i);
@@ -53,15 +54,15 @@ int main(void)
         //network_iz.printfile(fp_p, fp_a);
     }
 
-    /*
     //for(i = 0; i < iq_num_neurons; i++) {
     //for(i = 0; i < iz_num_neurons; i++) {
-        fclose(fp_p[i]);
-        fclose(fp_a[i]);
-    }
-    free(fp_p);
-    free(fp_a);
-    */
+        //fclose(fp[i]);
+        //fclose(fp_p[i]);
+        //fclose(fp_a[i]);
+    //}
+    //free(fp);
+    //free(fp_p);
+    //free(fp_a);
     end = clock();
     time_total = (double) (end - start) / CLOCKS_PER_SEC;
     printf("total execution time: %f sec\n", time_total);

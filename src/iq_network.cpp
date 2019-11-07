@@ -10,6 +10,7 @@ iq_network::iq_network()
     _f = new int[_num_neurons * _num_neurons]();
     _n = new int[_num_neurons * _num_neurons]();
     _weight = new int[_num_neurons * _num_neurons]();
+    wlist = new windex_list[_num_neurons];
     _scurrent = new int[_num_neurons * _num_neurons]();
     _ncurrent = new int[_num_neurons]();
     _biascurrent = new int[_num_neurons]();
@@ -95,6 +96,7 @@ int iq_network::get_weight()
     while(fscanf(fp, "%d %d %d %d", &i, &j, &temp, &temptwo) == 4) {
         *(_weight + _num_neurons*i + j) = temp;
         *(_tau + _num_neurons*i + j) = temptwo;
+        (wlist + i)->push_front(j);
         if(temptwo >= 10) {
             *(_f + _num_neurons*i + j) = (int) (log10(0.9) / log10((temptwo-1)/(float) temptwo));
         }
@@ -127,24 +129,28 @@ void iq_network::send_synapse()
                 int *ptf = _f + _num_neurons*i;
                 if((_neurons + i)->_is_firing) {
                     int *ptw = _weight + _num_neurons*i;
-                    for(int j = 0; j < _num_neurons; j++) {
-                        *(pts + j) += *(ptw + j);
-                        ncurrent_private[j] += *(pts + j);
-                        if(*(ptn + j) > *(ptf + j)) {
-                            *(ptn + j) = 0;
-                            *(pts + j) = *(pts + j) * 9 / 10;
+                    windex_node *j = (wlist + i)->first;
+                    while(j != NULL) {
+                        *(pts + j->_post) += *(ptw + j->_post);
+                        ncurrent_private[j->_post] += *(pts + j->_post);
+                        if(*(ptn + j->_post) > *(ptf + j->_post)) {
+                            *(ptn + j->_post) = 0;
+                            *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
                         }
-                        (*(ptn + j))++;
+                        (*(ptn + j->_post))++;
+                        j = j->next;
                     }
                 }
                 else {
-                    for(int j = 0; j < _num_neurons; j++) {
-                        ncurrent_private[j] += *(pts + j);
-                        if(*(ptn + j) > *(ptf + j)) {
-                            *(ptn + j) = 0;
-                            *(pts + j) = *(pts + j) * 9 / 10;
+                    windex_node *j = (wlist + i)->first;
+                    while(j != NULL) {
+                        ncurrent_private[j->_post] += *(pts + j->_post);
+                        if(*(ptn + j->_post) > *(ptf + j->_post)) {
+                            *(ptn + j->_post) = 0;
+                            *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
                         }
-                        (*(ptn + j))++;
+                        (*(ptn + j->_post))++;
+                        j = j->next;
                     }
                 }
             }
@@ -163,24 +169,28 @@ void iq_network::send_synapse()
             int *ptf = _f + _num_neurons*i;
             if((_neurons + i)->_is_firing) {
                 int *ptw = _weight + _num_neurons*i;
-                for(int j = 0; j < _num_neurons; j++) {
-                    *(pts + j) += *(ptw + j);
-                    *(_ncurrent + j) += *(pts + j);
-                    if(*(ptn + j) > *(ptf + j)) {
-                        *(ptn + j) = 0;
-                        *(pts + j) = *(pts + j) * 9 / 10;
+                windex_node *j = (wlist + i)->first;
+                while(j != NULL) {
+                    *(pts + j->_post) += *(ptw + j->_post);
+                    *(_ncurrent + j->_post) += *(pts + j->_post);
+                    if(*(ptn + j->_post) > *(ptf + j->_post)) {
+                        *(ptn + j->_post) = 0;
+                        *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
                     }
-                    (*(ptn + j))++;
+                    (*(ptn + j->_post))++;
+                    j = j->next;
                 }
             }
             else {
-                for(int j = 0; j < _num_neurons; j++) {
-                    *(_ncurrent + j) += *(pts + j);
-                    if(*(ptn + j) > *(ptf + j)) {
-                        *(ptn + j) = 0;
-                        *(pts + j) = *(pts + j) * 9 / 10;
+                windex_node *j = (wlist + i)->first;
+                while(j != NULL) {
+                    *(_ncurrent + j->_post) += *(pts + j->_post);
+                    if(*(ptn + j->_post) > *(ptf + j->_post)) {
+                        *(ptn + j->_post) = 0;
+                        *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
                     }
-                    (*(ptn + j))++;
+                    (*(ptn + j->_post))++;
+                    j = j->next;
                 }
             }
         }

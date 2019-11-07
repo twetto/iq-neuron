@@ -1,11 +1,10 @@
 #ifndef IQ_NETWORK_H
 #define IQ_NETWORK_H
 #include "iq_neuron.h"
+#include "windex_list.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <random>
-#include <time.h>
-#include <math.h>
 #include <omp.h>
 
 class iq_network
@@ -30,6 +29,7 @@ private:
     int *_tau, *_f, *_n;
     int *_weight, *_scurrent, *_ncurrent, *_biascurrent;
     iq_neuron *_neurons;
+    windex_list *wlist;
     int _num_threads = 1;
 };
 
