@@ -46,8 +46,8 @@ int main(void)
     }
 
     /* send synapse */
-    for(i = 0; i < 1000000; i++) {
-        //printf("%d\n", i);
+    for(i = 0; i < 1000; i++) {
+        printf("%d\n", i);
         network_iq.send_synapse();
         //network_iz.send_synapse();
         //network_iq.printfile(fp);
