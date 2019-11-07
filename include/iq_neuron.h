@@ -7,6 +7,8 @@
 
 #define MAX_POTENTIAL 256
 
+class iq_network;
+
 class iq_neuron
 {
 public:
@@ -21,6 +23,8 @@ public:
     bool is_firing();
     int spike_count();
     float spike_rate();
+
+    friend class iq_network;
 
 private:
     int t_neuron;                                   // Iterator of timestep
