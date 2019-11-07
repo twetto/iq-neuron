@@ -107,7 +107,6 @@ int iq_network::get_weight()
         }
     }
     fclose(fp);
-    printf("get_weight() OK\n");
     return 0;
 }
 
