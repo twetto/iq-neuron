@@ -30,6 +30,10 @@ iq_network::~iq_network()
     delete[] _f;
     delete[] _n;
     delete[] _neurons;
+    for(int i = 0; i < _num_neurons; i++) {
+        (wlist + i)->clear();
+    }
+    delete[] wlist;
     return;
 }
 
