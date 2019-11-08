@@ -2,8 +2,6 @@
 #define IQ_NEURON_H
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-#include <limits.h>
 
 #define MAX_POTENTIAL 256
 
@@ -24,7 +22,7 @@ public:
     int spike_count();
     float spike_rate();
 
-    friend class iq_network;
+    friend class iq_network;                // For direct access to _is_firing
 
 private:
     int t_neuron;                                   // Iterator of timestep
