@@ -18,8 +18,8 @@ class weight_index_list
 {
 public:
     weight_index_list();
+    ~weight_index_list();
     void push_front(int post);
-    void clear();
 
     weight_index_node *_first;
 };

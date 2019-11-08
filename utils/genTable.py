@@ -1,6 +1,6 @@
 output = open("Connection_Table_temp.txt","w+")
 for i in range(0,1023+1):
-    for j in range(i-288,i+288):
+    for j in range(i,i+1024):
         if j < 0:
             j = j + 1024
         elif j > 1023:

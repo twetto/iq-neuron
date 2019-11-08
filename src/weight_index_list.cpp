@@ -15,21 +15,21 @@ weight_index_list::weight_index_list()
     return;
 }
 
-void weight_index_list::push_front(int post)
-{
-    weight_index_node *newNode = new weight_index_node(post);
-    newNode->_next = _first;
-    _first = newNode;
-    return;
-}
-
-void weight_index_list::clear()
+weight_index_list::~weight_index_list()
 {
     while(_first != NULL) {
         weight_index_node *current = _first;
         _first = _first->_next;
         delete current;
     }
+    return;
+}
+
+void weight_index_list::push_front(int post)
+{
+    weight_index_node *newNode = new weight_index_node(post);
+    newNode->_next = _first;
+    _first = newNode;
     return;
 }
 
