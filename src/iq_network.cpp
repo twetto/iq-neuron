@@ -22,15 +22,15 @@ iq_network::iq_network()
 
 iq_network::~iq_network()
 {
-    delete[] _weight;
-    delete[] _scurrent;
-    delete[] _ncurrent;
-    delete[] _biascurrent;
+    delete[] _neurons;
     delete[] _tau;
     delete[] _f;
     delete[] _n;
-    delete[] _neurons;
+    delete[] _weight;
     delete[] _wlist;
+    delete[] _scurrent;
+    delete[] _ncurrent;
+    delete[] _biascurrent;
     return;
 }
 
@@ -161,6 +161,7 @@ void iq_network::send_synapse()
                     *(_ncurrent + i) += ncurrent_private[i];
                 }
             }
+            delete[] ncurrent_private;
         }
     }
     else {
@@ -246,8 +247,6 @@ void iq_network::set_num_threads(int num_threads)
 extern "C"
 {
     iq_network* iq_network_new() {return new iq_network();}
-    int iq_network_set_neurons(iq_network* network) {return network->set_neurons();}
-    int iq_network_get_weight(iq_network* network) {return network->get_weight();}
     int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
     void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
     void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
