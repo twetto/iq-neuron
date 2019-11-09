@@ -1,3 +1,7 @@
+/* IQIF network
+ * Chen-Fu Yeh, 2019/11/09
+ */
+
 #include "iq_network.h"
 
 using namespace std;
@@ -74,7 +78,7 @@ int iq_network::set_neurons()
 
 int iq_network::get_weight()
 {
-    int i, j, temp, temptwo;
+    int i, j, weight, tau;
     FILE *fp;
     for(i = 0; i < _num_neurons; i++) {
         for(j = 0; j < _num_neurons; j++) {
@@ -94,12 +98,12 @@ int iq_network::get_weight()
         return 1;
     }
 
-    while(fscanf(fp, "%d %d %d %d", &i, &j, &temp, &temptwo) == 4) {
-        *(_weight + _num_neurons*i + j) = temp;
-        *(_tau + _num_neurons*i + j) = temptwo;
+    while(fscanf(fp, "%d %d %d %d", &i, &j, &weight, &tau) == 4) {
+        *(_weight + _num_neurons*i + j) = weight;
+        *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
-        if(temptwo >= 10) {
-            *(_f + _num_neurons*i + j) = (int) (log10(0.9) / log10((temptwo-1)/(float) temptwo));
+        if(tau >= 10) {
+            *(_f + _num_neurons*i + j) = (int) (log10(0.9) / log10((tau-1)/(float) tau));
         }
         else {
             printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
@@ -120,6 +124,7 @@ void iq_network::send_synapse()
 {
     /* accumulating/decaying synapse current */
     if(_num_threads > 1) {
+    // parallel mode
         #pragma omp parallel
         {
             int *ncurrent_private = new int[_num_neurons]();
@@ -130,27 +135,36 @@ void iq_network::send_synapse()
                 int *ptf = _f + _num_neurons*i;
                 if((_neurons + i)->_is_firing) {
                     int *ptw = _weight + _num_neurons*i;
+
+                    /* parse through axon index */
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
-                        *(pts + j->_post) += *(ptw + j->_post);
-                        ncurrent_private[j->_post] += *(pts + j->_post);
-                        if(*(ptn + j->_post) > *(ptf + j->_post)) {
-                            *(ptn + j->_post) = 0;
-                            *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
+
+                        /* accumulate weight if fired */
+                        *(pts + j->_data) += *(ptw + j->_data);
+
+                        /* add current to neuron input */
+                        ncurrent_private[j->_data] += *(pts + j->_data);
+
+                        /* synapse decay */
+                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
+                            *(ptn + j->_data) = 0;
+                            *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
                         }
-                        (*(ptn + j->_post))++;
+                        (*(ptn + j->_data))++;
+
                         j = j->_next;
                     }
                 }
                 else {
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
-                        ncurrent_private[j->_post] += *(pts + j->_post);
-                        if(*(ptn + j->_post) > *(ptf + j->_post)) {
-                            *(ptn + j->_post) = 0;
-                            *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
+                        ncurrent_private[j->_data] += *(pts + j->_data);
+                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
+                            *(ptn + j->_data) = 0;
+                            *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
                         }
-                        (*(ptn + j->_post))++;
+                        (*(ptn + j->_data))++;
                         j = j->_next;
                     }
                 }
@@ -165,6 +179,7 @@ void iq_network::send_synapse()
         }
     }
     else {
+    // single thread mode
         for(int i = 0; i < _num_neurons; i++) {
             int *pts = _scurrent + _num_neurons*i;
             int *ptn = _n + _num_neurons*i;
@@ -173,25 +188,25 @@ void iq_network::send_synapse()
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
-                    *(pts + j->_post) += *(ptw + j->_post);
-                    *(_ncurrent + j->_post) += *(pts + j->_post);
-                    if(*(ptn + j->_post) > *(ptf + j->_post)) {
-                        *(ptn + j->_post) = 0;
-                        *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
+                    *(pts + j->_data) += *(ptw + j->_data);
+                    *(_ncurrent + j->_data) += *(pts + j->_data);
+                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
+                        *(ptn + j->_data) = 0;
+                        *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
                     }
-                    (*(ptn + j->_post))++;
+                    (*(ptn + j->_data))++;
                     j = j->_next;
                 }
             }
             else {
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
-                    *(_ncurrent + j->_post) += *(pts + j->_post);
-                    if(*(ptn + j->_post) > *(ptf + j->_post)) {
-                        *(ptn + j->_post) = 0;
-                        *(pts + j->_post) = *(pts + j->_post) * 9 / 10;
+                    *(_ncurrent + j->_data) += *(pts + j->_data);
+                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
+                        *(ptn + j->_data) = 0;
+                        *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
                     }
-                    (*(ptn + j->_post))++;
+                    (*(ptn + j->_data))++;
                     j = j->_next;
                 }
             }

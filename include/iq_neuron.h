@@ -1,9 +1,13 @@
+/* IQIF neuron object
+ * Chen-Fu Yeh, 2019/11/09
+ */
+
 #ifndef IQ_NEURON_H
 #define IQ_NEURON_H
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAX_POTENTIAL 256
+#define MAX_POTENTIAL 255
 
 class iq_network;
 

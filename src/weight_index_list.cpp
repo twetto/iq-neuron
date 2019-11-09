@@ -1,10 +1,14 @@
+/* Singly-linked list for axon indexing
+ * Chen-Fu Yeh, 2019/11/09
+ */
+
 #include "weight_index_list.h"
 
 using namespace std;
 
-weight_index_node::weight_index_node(int post)
+weight_index_node::weight_index_node(int data)
 {
-    _post = post;
+    _data = data;
     _next = NULL;
     return;
 }
@@ -25,9 +29,9 @@ weight_index_list::~weight_index_list()
     return;
 }
 
-void weight_index_list::push_front(int post)
+void weight_index_list::push_front(int data)
 {
-    weight_index_node *newNode = new weight_index_node(post);
+    weight_index_node *newNode = new weight_index_node(data);
     newNode->_next = _first;
     _first = newNode;
     return;
