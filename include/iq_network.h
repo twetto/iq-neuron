@@ -23,6 +23,12 @@ public:
     float spike_rate(int neuron_index);
     void set_num_threads(int num_threads);  // for multithreading
 
+protected:  // non-copyable and non-movable
+    iq_network(const iq_network& other) = delete;
+    iq_network(iq_network&& other) = delete;
+    iq_network& operator=(const iq_network& other) = delete;
+    iq_network& operator=(iq_network&& other) = delete;
+
 private:
     int linenum_neuronParameter();  // get # of neurons by # of lines in file
     int set_neurons();              // read from input/neuronParameter.txt
