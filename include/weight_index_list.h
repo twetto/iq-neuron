@@ -6,8 +6,6 @@
 #define WEIGHT_INDEX_LIST_H
 #include <stdio.h>
 
-class weight_index_list;
-
 class weight_index_node
 {
 public:
