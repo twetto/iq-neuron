@@ -1,3 +1,7 @@
+/* Izhikevich neuron object
+ * Chen-Fu Yeh, 2019/11/09
+ */
+
 #include "iz_neuron.h"
 
 using namespace std;
@@ -108,7 +112,7 @@ float iz_neuron::spike_rate()
     return r;
 }
 
-void iz_neuron::funca(float &fa, const float I, const float dtt,
+void iz_neuron::funca(float &fa, float &I, const float dtt,
                       const float arg1, const float arg2)
 {
     float tmpv, tmpu;

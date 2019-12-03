@@ -2,7 +2,6 @@
 #define IZ_NEURON_H
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
 class iz_neuron
 {
@@ -20,7 +19,7 @@ public:
     float spike_rate();
 
 private:
-    void funca(float &fa, const float I, const float dtt,
+    void funca(float &fa, float &I, const float dtt,
                const float arg1, const float arg2);
     void funcb(float &fb, const float dtt,
                const float arg1, const float arg2);

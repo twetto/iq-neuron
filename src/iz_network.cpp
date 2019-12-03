@@ -1,3 +1,7 @@
+/* Izhikevich network
+ * Chen-Fu Yeh, 2019/12/04
+ */
+
 #include "iz_network.h"
 
 using namespace std;
@@ -8,6 +12,7 @@ iz_network::iz_network()
     _neurons = new iz_neuron[_num_neurons];
     _tau = new int[_num_neurons * _num_neurons]();
     _weight = new float[_num_neurons * _num_neurons]();
+    _wlist = new weight_index_list[_num_neurons];
     _scurrent = new float[_num_neurons * _num_neurons]();
     _ncurrent = new float[_num_neurons]();
     _biascurrent = new float[_num_neurons]();
@@ -19,12 +24,13 @@ iz_network::iz_network()
 
 iz_network::~iz_network()
 {
+    delete[] _neurons;
+    delete[] _tau;
     delete[] _weight;
+    delete[] _wlist;
     delete[] _scurrent;
     delete[] _ncurrent;
     delete[] _biascurrent;
-    delete[] _tau;
-    delete[] _neurons;
     return;
 }
 
@@ -91,6 +97,7 @@ int iz_network::get_weight()
     while(fscanf(fp, "%d %d %f %d", &i, &j, &temp, &temptwo) == 4) {
         *(_weight + _num_neurons*i + j) = temp;
         *(_tau + _num_neurons*i + j) = temptwo;
+        (_wlist + i)->push_front(j);
         if(temptwo < 1) {
             printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
             printf("error: synapse time constant cannot be less than 1!\n");
@@ -119,16 +126,33 @@ void iz_network::send_synapse()
                 int *ptt = _tau + _num_neurons*i;
                 if((_neurons + i)->is_firing()) {
                     float *ptw = _weight + _num_neurons*i;
+                    /*
                     for(int j = 0; j < _num_neurons; j++) {
                         *(pts + j) += *(ptw + j);
                         ncurrent_private[j] += *(pts + j);
                         *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
                     }
+                    */
+                    weight_index_node *j = (_wlist + i)->_first;
+                    while(j != NULL) {
+                        *(pts + j->_data) += *(ptw + j->_data);
+                        ncurrent_private[j->_data] += *(pts + j->_data);
+                        *(pts + j->_data) = *(pts + j->_data) * (*(ptt + j->_data) - 1) / *(ptt + j->_data);
+                        j = j->_next;
+                    }
                 }
                 else {
+                    /*
                     for(int j = 0; j < _num_neurons; j++) {
                         ncurrent_private[j] += *(pts + j);
                         *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+                    }
+                    */
+                    weight_index_node *j = (_wlist + i)->_first;
+                    while(j != NULL) {
+                        ncurrent_private[j->_data] += *(pts + j->_data);
+                        *(pts + j->_data) = *(pts + j->_data) * (*(ptt + j->_data) - 1) / *(ptt + j->_data);
+                        j = j->_next;
                     }
                 }
             }
@@ -138,6 +162,7 @@ void iz_network::send_synapse()
                     *(_ncurrent + i) += ncurrent_private[i];
                 }
             }
+            delete[] ncurrent_private;
         }
     }
     else {
@@ -146,16 +171,33 @@ void iz_network::send_synapse()
             int *ptt = _tau + _num_neurons*i;
             if((_neurons + i)->is_firing()) {
                 float *ptw = _weight + _num_neurons*i;
+                /*
                 for(int j = 0; j < _num_neurons; j++) {
                     *(pts + j) += *(ptw + j);
                     *(_ncurrent + j) += *(pts + j);
                     *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
                 }
+                */
+                weight_index_node *j = (_wlist + i)->_first;
+                while(j != NULL) {
+                    *(pts + j->_data) += *(ptw + j->_data);
+                    *(_ncurrent + j->_data) += *(pts + j->_data);
+                    *(pts + j->_data) = *(pts + j->_data) * (*(ptt + j->_data) - 1) / *(ptt + j->_data);
+                    j = j->_next;
+                }
             }
             else {
+                /*
                 for(int j = 0; j < _num_neurons; j++) {
                     *(_ncurrent + j) += *(pts + j);
                     *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
+                }
+                */
+                weight_index_node *j = (_wlist + i)->_first;
+                while(j != NULL) {
+                    *(_ncurrent + j->_data) += *(pts + j->_data);
+                    *(pts + j->_data) = *(pts + j->_data) * (*(ptt + j->_data) - 1) / *(ptt + j->_data);
+                    j = j->_next;
                 }
             }
         }
@@ -163,7 +205,7 @@ void iz_network::send_synapse()
 
     /* solving DE, reset post-syn current */
     for(int i = 0; i < _num_neurons; i++) {
-        (_neurons + i)->iz_euler(*(_ncurrent + i) + *(_biascurrent + i));
+        (_neurons + i)->iz_rk4(*(_ncurrent + i) + *(_biascurrent + i));
         *(_ncurrent + i) = 0;
     }
     return;
@@ -218,8 +260,6 @@ void iz_network::set_num_threads(int num_threads)
 extern "C"
 {
     iz_network* iz_network_new() {return new iz_network();}
-    int iz_network_set_neurons(iz_network* network) {return network->set_neurons();}
-    int iz_network_get_weight(iz_network* network) {return network->get_weight();}
     int iz_network_num_neurons(iz_network* network) {return network->num_neurons();}
     void iz_network_send_synapse(iz_network* network) {return network->send_synapse();}
     void iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
