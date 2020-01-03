@@ -56,7 +56,7 @@ void iq_neuron::iq(int external_current)
         f = _a * (_rest - x);
     else
         f = _b * (x - _threshold);
-    x += f/10 + external_current + rand()%_noise-_noise/2;
+    x += (f >> 3) + external_current + rand()%_noise - (_noise >> 1);
 
     /* fire if exceeding action potential */
     _is_firing = false;
