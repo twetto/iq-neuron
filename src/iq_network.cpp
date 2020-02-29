@@ -103,7 +103,7 @@ int iq_network::get_weight()
         *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
         if(tau >= 10) {
-            *(_f + _num_neurons*i + j) = (int) (log10(0.9) / log10((tau-1)/(float) tau));
+            *(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
         }
         else {
             printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
@@ -149,7 +149,7 @@ void iq_network::send_synapse()
                         /* synapse decay */
                         if(*(ptn + j->_data) > *(ptf + j->_data)) {
                             *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
+                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                         }
                         (*(ptn + j->_data))++;
 
@@ -162,7 +162,7 @@ void iq_network::send_synapse()
                         ncurrent_private[j->_data] += *(pts + j->_data);
                         if(*(ptn + j->_data) > *(ptf + j->_data)) {
                             *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
+                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                         }
                         (*(ptn + j->_data))++;
                         j = j->_next;
@@ -192,7 +192,7 @@ void iq_network::send_synapse()
                     *(_ncurrent + j->_data) += *(pts + j->_data);
                     if(*(ptn + j->_data) > *(ptf + j->_data)) {
                         *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
+                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                     }
                     (*(ptn + j->_data))++;
                     j = j->_next;
@@ -204,7 +204,7 @@ void iq_network::send_synapse()
                     *(_ncurrent + j->_data) += *(pts + j->_data);
                     if(*(ptn + j->_data) > *(ptf + j->_data)) {
                         *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 9 / 10;
+                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                     }
                     (*(ptn + j->_data))++;
                     j = j->_next;
