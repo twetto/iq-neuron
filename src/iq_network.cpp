@@ -140,6 +140,9 @@ void iq_network::send_synapse()
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
 
+                        /* reset tau counter if fired */
+                        *(ptn + j->_data) = *(ptf + j->_data);
+                        
                         /* accumulate weight if fired */
                         *(pts + j->_data) += *(ptw + j->_data);
 
@@ -188,6 +191,7 @@ void iq_network::send_synapse()
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
+                    *(ptn + j->_data) = *(ptf + j->_data);
                     *(pts + j->_data) += *(ptw + j->_data);
                     *(_ncurrent + j->_data) += *(pts + j->_data);
                     if(*(ptn + j->_data) > *(ptf + j->_data)) {
