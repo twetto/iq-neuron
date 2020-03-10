@@ -102,8 +102,9 @@ int iq_network::get_weight()
         *(_weight + _num_neurons*i + j) = weight;
         *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
-        if(tau >= 10) {
+        if(tau >= 8) {
             *(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
+            printf("synapse[%d][%d]: decays every %d steps\n", i, j, *(_f + _num_neurons*i + j));
         }
         else {
             printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
@@ -140,9 +141,6 @@ void iq_network::send_synapse()
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
 
-                        /* reset tau counter if fired */
-                        *(ptn + j->_data) = *(ptf + j->_data);
-                        
                         /* accumulate weight if fired */
                         *(pts + j->_data) += *(ptw + j->_data);
 
@@ -191,7 +189,6 @@ void iq_network::send_synapse()
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
-                    *(ptn + j->_data) = *(ptf + j->_data);
                     *(pts + j->_data) += *(ptw + j->_data);
                     *(_ncurrent + j->_data) += *(pts + j->_data);
                     if(*(ptn + j->_data) > *(ptf + j->_data)) {

@@ -126,13 +126,6 @@ void iz_network::send_synapse()
                 int *ptt = _tau + _num_neurons*i;
                 if((_neurons + i)->is_firing()) {
                     float *ptw = _weight + _num_neurons*i;
-                    /*
-                    for(int j = 0; j < _num_neurons; j++) {
-                        *(pts + j) += *(ptw + j);
-                        ncurrent_private[j] += *(pts + j);
-                        *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
-                    }
-                    */
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
                         *(pts + j->_data) += *(ptw + j->_data);
@@ -142,12 +135,6 @@ void iz_network::send_synapse()
                     }
                 }
                 else {
-                    /*
-                    for(int j = 0; j < _num_neurons; j++) {
-                        ncurrent_private[j] += *(pts + j);
-                        *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
-                    }
-                    */
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
                         ncurrent_private[j->_data] += *(pts + j->_data);
@@ -171,13 +158,6 @@ void iz_network::send_synapse()
             int *ptt = _tau + _num_neurons*i;
             if((_neurons + i)->is_firing()) {
                 float *ptw = _weight + _num_neurons*i;
-                /*
-                for(int j = 0; j < _num_neurons; j++) {
-                    *(pts + j) += *(ptw + j);
-                    *(_ncurrent + j) += *(pts + j);
-                    *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
-                }
-                */
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
                     *(pts + j->_data) += *(ptw + j->_data);
@@ -187,12 +167,6 @@ void iz_network::send_synapse()
                 }
             }
             else {
-                /*
-                for(int j = 0; j < _num_neurons; j++) {
-                    *(_ncurrent + j) += *(pts + j);
-                    *(pts + j) = *(pts + j) * (*(ptt + j) - 1) / *(ptt + j);
-                }
-                */
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
                     *(_ncurrent + j->_data) += *(pts + j->_data);
