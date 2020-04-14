@@ -8,7 +8,7 @@
 
 * cmake >= 3.9
 
-* python 3 or 2
+* python 3
 
 ## Compiling & Running:
 
@@ -16,7 +16,7 @@
 mkdir build && cd build
 cmake ..
 make
-./IQIF
+./IQIF < ../input/session.txt (or use your custom session)
 ../utils/iq_plot.py
 ```
 
