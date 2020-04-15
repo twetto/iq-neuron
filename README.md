@@ -16,7 +16,7 @@
 mkdir build && cd build
 cmake ..
 make
-./IQIF < ../input/session.txt (or use your custom session)
+./IQIF < ../inputs/session.txt (or use your custom session)
 ../utils/iq_plot.py
 ```
 
