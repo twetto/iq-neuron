@@ -45,30 +45,30 @@ int main(void)
     }
 
     int steps, idx, bias;
-    printf("How many timesteps do you want?\n");
+    //printf("How many timesteps do you want?\n");
     scanf(" %d", &steps);
     while(steps >= 0) {
-        printf("steps: %d\n", steps);
+        //printf("steps: %d\n", steps);
 
-        printf("Neuron to insert bias current:\n");
+        //printf("Neuron to insert bias current:\n");
         scanf(" %d", &idx);
         while(idx >= 0) {
-            printf("How much current do you want to insert?\n");
+            //printf("How much current do you want to insert?\n");
             scanf(" %d", &bias);
             network_iq.set_biascurrent(idx, bias);
-            printf("neuron %d is receiving current %d\n", idx, bias);
+            //printf("neuron %d is receiving current %d\n", idx, bias);
 
-            printf("Neuron to insert bias current:\n");
+            //printf("Neuron to insert bias current:\n");
             scanf(" %d", &idx);
         }
 
-        printf("Set complete; sending synapses...\n");
+        //printf("Set complete; sending synapses...\n");
         for(i = 0; i < steps; i++) {
             network_iq.send_synapse();
             network_iq.printfile(fp);
         }
-        printf("Synapse OK. Waiting for next period...\n");
-        printf("How many timesteps do you want?\n");
+        //printf("Synapse OK. Waiting for next period...\n");
+        //printf("How many timesteps do you want?\n");
         scanf(" %d", &steps);
     }
 
@@ -86,7 +86,7 @@ int main(void)
     }
     */
 
-    printf("Simulation finished. Quitting...\n");
+    //printf("Simulation finished. Quitting...\n");
 
     for(i = 0; i < iq_num_neurons; i++) {
     //for(i = 0; i < iz_num_neurons; i++) {
@@ -99,7 +99,7 @@ int main(void)
     //free(fp_a);
     end = clock();
     time_total = (double) (end - start) / CLOCKS_PER_SEC;
-    printf("total execution time: %f sec\n", time_total);
+    //printf("total execution time: %f sec\n", time_total);
     return 0;
 }
 
