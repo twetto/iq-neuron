@@ -135,6 +135,7 @@ void iq_network::send_synapse()
                 int *ptn = _n + _num_neurons*i;
                 int *ptf = _f + _num_neurons*i;
                 if((_neurons + i)->_is_firing) {
+                    printf("neuron %d has fired\n", i);
                     int *ptw = _weight + _num_neurons*i;
 
                     /* parse through axon index */
@@ -186,6 +187,7 @@ void iq_network::send_synapse()
             int *ptn = _n + _num_neurons*i;
             int *ptf = _f + _num_neurons*i;
             if((_neurons + i)->_is_firing) {
+                printf("neuron %d has fired\n", i);
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
