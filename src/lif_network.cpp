@@ -2,6 +2,12 @@
  * Chen-Fu Yeh, 2020/07/02
  */
 
+#if defined(_WIN32) && defined(lif_network_EXPORTS)
+#    define DLLEXPORTLIF __declspec (dllexport)
+#else
+#    define DLLEXPORTLIF
+#endif
+
 #include "lif_network.h"
 
 using namespace std;
@@ -225,13 +231,13 @@ void lif_network::set_num_threads(int num_threads)
 
 extern "C"
 {
-    lif_network* lif_network_new() {return new lif_network();}
-    int lif_network_num_neurons(lif_network* network) {return network->num_neurons();}
-    void lif_network_send_synapse(lif_network* network) {return network->send_synapse();}
-    void lif_network_set_biascurrent(lif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
-    float lif_network_potential(lif_network* network, int neuron_index) {return network->potential(neuron_index);}
-    int lif_network_spike_count(lif_network* network, int neuron_index) {return network->spike_count(neuron_index);}
-    float lif_network_spike_rate(lif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
-    void lif_network_set_num_threads(lif_network* network, int num_threads) {return network->set_num_threads(num_threads);}
+    DLLEXPORTLIF lif_network* lif_network_new() {return new lif_network();}
+    DLLEXPORTLIF int lif_network_num_neurons(lif_network* network) {return network->num_neurons();}
+    DLLEXPORTLIF void lif_network_send_synapse(lif_network* network) {return network->send_synapse();}
+    DLLEXPORTLIF void lif_network_set_biascurrent(lif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTLIF float lif_network_potential(lif_network* network, int neuron_index) {return network->potential(neuron_index);}
+    DLLEXPORTLIF int lif_network_spike_count(lif_network* network, int neuron_index) {return network->spike_count(neuron_index);}
+    DLLEXPORTLIF float lif_network_spike_rate(lif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
+    DLLEXPORTLIF void lif_network_set_num_threads(lif_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }
 
