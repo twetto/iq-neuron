@@ -2,6 +2,12 @@
  * Chen-Fu Yeh, 2019/12/04
  */
 
+#if defined(_WIN32) && defined(iz_network_EXPORTS)
+#    define DLLEXPORTIZ __declspec (dllexport)
+#else
+#    define DLLEXPORTIZ
+#endif
+
 #include "iz_network.h"
 
 using namespace std;
@@ -233,14 +239,14 @@ void iz_network::set_num_threads(int num_threads)
 
 extern "C"
 {
-    iz_network* iz_network_new() {return new iz_network();}
-    int iz_network_num_neurons(iz_network* network) {return network->num_neurons();}
-    void iz_network_send_synapse(iz_network* network) {return network->send_synapse();}
-    void iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
-    float iz_network_potential(iz_network* network, int neuron_index) {return network->potential(neuron_index);}
-    float iz_network_adaptive_term(iz_network* network, int neuron_index) {return network->adaptive_term(neuron_index);}
-    int iz_network_spike_count(iz_network* network, int neuron_index) {return network->spike_count(neuron_index);}
-    float iz_network_spike_rate(iz_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
-    void iz_network_set_num_threads(iz_network* network, int num_threads) {return network->set_num_threads(num_threads);}
+    DLLEXPORTIZ iz_network* iz_network_new() {return new iz_network();}
+    DLLEXPORTIZ int iz_network_num_neurons(iz_network* network) {return network->num_neurons();}
+    DLLEXPORTIZ void iz_network_send_synapse(iz_network* network) {return network->send_synapse();}
+    DLLEXPORTIZ void iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIZ float iz_network_potential(iz_network* network, int neuron_index) {return network->potential(neuron_index);}
+    DLLEXPORTIZ float iz_network_adaptive_term(iz_network* network, int neuron_index) {return network->adaptive_term(neuron_index);}
+    DLLEXPORTIZ int iz_network_spike_count(iz_network* network, int neuron_index) {return network->spike_count(neuron_index);}
+    DLLEXPORTIZ float iz_network_spike_rate(iz_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
+    DLLEXPORTIZ void iz_network_set_num_threads(iz_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }
 

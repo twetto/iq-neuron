@@ -2,6 +2,12 @@
  * Chen-Fu Yeh, 2019/11/09
  */
 
+#if defined(_WIN32) && defined(iq_network_EXPORTS)
+#    define DLLEXPORTIQ __declspec (dllexport)
+#else
+#    define DLLEXPORTIQ
+#endif
+
 #include "iq_network.h"
 
 using namespace std;
@@ -264,13 +270,13 @@ void iq_network::set_num_threads(int num_threads)
 
 extern "C"
 {
-    iq_network* iq_network_new() {return new iq_network();}
-    int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
-    void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
-    void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
-    int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
-    int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
-    float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
-    void iq_network_set_num_threads(iq_network* network, int num_threads) {return network->set_num_threads(num_threads);}
+    DLLEXPORTIQ iq_network* iq_network_new() {return new iq_network();}
+    DLLEXPORTIQ int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
+    DLLEXPORTIQ void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
+    DLLEXPORTIQ void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
+    DLLEXPORTIQ int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
+    DLLEXPORTIQ float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
+    DLLEXPORTIQ void iq_network_set_num_threads(iq_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }
 
