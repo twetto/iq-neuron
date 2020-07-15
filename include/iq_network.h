@@ -12,7 +12,8 @@
 class iq_network
 {
 public:
-    iq_network();
+    iq_network(const char *par = "../inputs/neuronParameter_IQIF.txt",
+               const char *con = "../inputs/Connection_Table_IQIF.txt");
     ~iq_network();
     int num_neurons();
     void send_synapse();                    // proceed one timestep
@@ -30,9 +31,9 @@ protected:  // non-copyable and non-movable
     iq_network& operator=(iq_network&& other) = delete;
 
 private:
-    int linenum_neuronParameter();  // get # of neurons by # of lines in file
-    int set_neurons();              // read from input/neuronParameter.txt
-    int get_weight();               // read from input/connectionTable.txt
+    int linenum_neuronParameter(const char *par);   // get # of neurons
+    int set_neurons(const char *par);   // read from file par
+    int get_weight(const char *con);    // read from file con
     int _num_neurons;
     int *_tau, *_f, *_n;            // synapse decay time constant & siblings
     int *_weight;                   // synapse weight matrix

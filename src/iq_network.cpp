@@ -12,9 +12,9 @@
 
 using namespace std;
 
-iq_network::iq_network()
+iq_network::iq_network(const char *par, const char *con)
 {
-    _num_neurons = linenum_neuronParameter();
+    _num_neurons = linenum_neuronParameter(par);
     _neurons = new iq_neuron[_num_neurons];
     _tau = new int[_num_neurons * _num_neurons]();
     _f = new int[_num_neurons * _num_neurons]();
@@ -25,8 +25,8 @@ iq_network::iq_network()
     _ncurrent = new int[_num_neurons]();
     _biascurrent = new int[_num_neurons]();
 
-    get_weight();
-    set_neurons();
+    get_weight(con);
+    set_neurons(par);
     return;
 }
 
@@ -44,10 +44,10 @@ iq_network::~iq_network()
     return;
 }
 
-int iq_network::linenum_neuronParameter()
+int iq_network::linenum_neuronParameter(const char *par)
 {
     int i[7], linenum = 0;
-    FILE *fp = fopen("../inputs/neuronParameter_IQIF.txt", "r");
+    FILE *fp = fopen(par, "r");
     if(fp == NULL) {
         printf("neuronParameter_IQIF.txt file not opened\n");
         return -1;
@@ -61,7 +61,7 @@ int iq_network::linenum_neuronParameter()
     return linenum;
 }
 
-int iq_network::set_neurons()
+int iq_network::set_neurons(const char *par)
 {
     int i, rest, threshold, reset, a, b, noise;
     FILE *fp;
@@ -73,7 +73,7 @@ int iq_network::set_neurons()
         return 1;
     }
     */
-    fp = fopen("../inputs/neuronParameter_IQIF.txt", "r");
+    fp = fopen(par, "r");
     while(fscanf(fp, " %d %d %d %d %d %d %d", &i, &rest, &threshold,
             &reset, &a, &b, &noise) == 7) {
         (_neurons + i)->set(rest, threshold, reset, a, b, noise);
@@ -82,7 +82,7 @@ int iq_network::set_neurons()
     return 0;
 }
 
-int iq_network::get_weight()
+int iq_network::get_weight(const char *con)
 {
     int i, j, weight, tau;
     FILE *fp;
@@ -98,7 +98,7 @@ int iq_network::get_weight()
         *(_ncurrent + i) = 0;
     }
 
-    fp = fopen("../inputs/Connection_Table_IQIF.txt", "r");
+    fp = fopen(con, "r");
     if(fp == NULL) {
         printf("Connection_Table_IQIF.txt file not opened\n");
         return 1;

@@ -17,7 +17,7 @@ int main(void)
     double time_total;
 
     int i;
-    iq_network network_iq("../inputs/neuronParameter_IQIF_bistable.txt", "../inputs/Connection_Table_IQIF_bistable.txt");
+    iq_network network_iq;
     //iz_network network_iz;
     int iq_num_neurons = network_iq.num_neurons();
     //int iz_num_neurons = network_iz.num_neurons();
