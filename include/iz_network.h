@@ -12,7 +12,9 @@
 class iz_network
 {
 public:
-    iz_network();
+    //iz_network();
+    iz_network(const char *par = "../inputs/neuronParameter_Izhikevich.txt",
+               const char *con = "../inputs/Connection_Table_Izhikevich.txt");
     ~iz_network();
     int num_neurons();
     void send_synapse();
@@ -31,9 +33,9 @@ protected:  // non-copyable and non-movable
     iz_network& operator=(iz_network&& other) = delete;
 
 private:
-    int linenum_neuronParameter();
-    int set_neurons();
-    int get_weight();
+    int linenum_neuronParameter(const char *par);
+    int set_neurons(const char *par);
+    int get_weight(const char *con);
     int _num_neurons;
     int *_tau;
     float *_weight, *_scurrent, *_ncurrent, *_biascurrent;

@@ -49,7 +49,7 @@ int iq_network::linenum_neuronParameter(const char *par)
     int i[7], linenum = 0;
     FILE *fp = fopen(par, "r");
     if(fp == NULL) {
-        printf("neuronParameter_IQIF.txt file not opened\n");
+        printf("IQIF parameter file not opened\n");
         return -1;
     }
     
@@ -100,7 +100,7 @@ int iq_network::get_weight(const char *con)
 
     fp = fopen(con, "r");
     if(fp == NULL) {
-        printf("Connection_Table_IQIF.txt file not opened\n");
+        printf("IQIF connection table file not opened\n");
         return 1;
     }
 
@@ -270,7 +270,7 @@ void iq_network::set_num_threads(int num_threads)
 
 extern "C"
 {
-    DLLEXPORTIQ iq_network* iq_network_new() {return new iq_network();}
+    DLLEXPORTIQ iq_network* iq_network_new(const char *par, const char *con) {return new iq_network(par, con);}
     DLLEXPORTIQ int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
     DLLEXPORTIQ void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
     DLLEXPORTIQ void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}

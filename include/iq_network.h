@@ -14,6 +14,7 @@ class iq_network
 public:
     iq_network(const char *par = "../inputs/neuronParameter_IQIF.txt",
                const char *con = "../inputs/Connection_Table_IQIF.txt");
+                                            // overload filename
     ~iq_network();
     int num_neurons();
     void send_synapse();                    // proceed one timestep

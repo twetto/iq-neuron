@@ -36,8 +36,9 @@ except OSError:
 print("All libs loaded. Congrats!")
 
 class iqnet(object):
-    def __init__(self):
-        libiq.iq_network_new.argtypes = None
+    def __init__(self, par, con):
+        #libiq.iq_network_new.argtypes = None
+        libiq.iq_network_new.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         libiq.iq_network_new.restype = ctypes.c_void_p
 
         libiq.iq_network_num_neurons.argtypes = [ctypes.c_void_p]
@@ -61,7 +62,9 @@ class iqnet(object):
         libiq.iq_network_set_num_threads.argtypes = [ctypes.c_void_p, ctypes.c_int]
         libiq.iq_network_set_num_threads.restype = ctypes.c_void_p
 
-        self.obj = libiq.iq_network_new()
+        b_par = par.encode('utf-8')
+        b_con = con.encode('utf-8')
+        self.obj = libiq.iq_network_new(b_par, b_con)
 
     def num_neurons(self):
         return libiq.iq_network_num_neurons(self.obj)
@@ -176,3 +179,4 @@ class lifnet(object):
     def spike_rate(self, neuron_index):
         return liblif.lif_network_spike_rate(self.obj, neuron_index)
 
+net = iqnet("inputs/neuronParameter_IQIF_bistable.txt", "inputs/Connection_Table_IQIF_bistable.txt")
