@@ -15,8 +15,8 @@
 ```bash
 mkdir build && cd build
 cmake ..
-make
-./IQIF < ../inputs/session.txt (or use your custom session)
+make -j
+./libiq < ../inputs/session.txt (or use your custom session)
 ../utils/iq_plot.py
 ```
 
