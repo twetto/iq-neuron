@@ -12,9 +12,9 @@
 
 using namespace std;
 
-lif_network::lif_network()
+lif_network::lif_network(const char *par, const char *con)
 {
-    _num_neurons = linenum_neuronParameter();
+    _num_neurons = linenum_neuronParameter(par);
     _neurons = new lif_neuron[_num_neurons];
     _tau = new int[_num_neurons * _num_neurons]();
     _weight = new float[_num_neurons * _num_neurons]();
@@ -23,8 +23,8 @@ lif_network::lif_network()
     _ncurrent = new float[_num_neurons]();
     _biascurrent = new float[_num_neurons]();
 
-    get_weight();
-    set_neurons();
+    get_weight(con);
+    set_neurons(par);
     return;
 }
 
@@ -40,13 +40,13 @@ lif_network::~lif_network()
     return;
 }
 
-int lif_network::linenum_neuronParameter()
+int lif_network::linenum_neuronParameter(const char *par)
 {
     int linenum = 0;
     float f[6];
-    FILE *fp = fopen("../inputs/neuronParameter_LIF.txt", "r");
+    FILE *fp = fopen(par, "r");
     if(fp == NULL) {
-        printf("neuronParameter_LIF.txt file not opened\n");
+        printf("LIF parameter file not opened\n");
         return -1;
     }
     
@@ -58,7 +58,7 @@ int lif_network::linenum_neuronParameter()
     return linenum;
 }
 
-int lif_network::set_neurons()
+int lif_network::set_neurons(const char *par)
 {
     int i;
     float g, rest, threshold, reset;
@@ -72,7 +72,7 @@ int lif_network::set_neurons()
         return 1;
     }
     */
-    fp = fopen("../inputs/neuronParameter_LIF.txt", "r");
+    fp = fopen(par, "r");
     while(fscanf(fp, " %d %f %f %f %f %d", &i, &g, &rest, &threshold, &reset, &noise) == 6) {
         (_neurons + i)->set(g, rest, threshold, reset, noise);
     }
@@ -80,7 +80,7 @@ int lif_network::set_neurons()
     return 0;
 }
 
-int lif_network::get_weight()
+int lif_network::get_weight(const char *con)
 {
     float temp;
     int i, j, temptwo;
@@ -94,9 +94,9 @@ int lif_network::get_weight()
         *(_biascurrent + i) = 0;
         *(_ncurrent + i) = 0;
     }
-    fp = fopen("../inputs/Connection_Table_LIF.txt", "r");
+    fp = fopen(con, "r");
     if(fp == NULL) {
-        printf("Connection_Table_LIF.txt file not opened\n");
+        printf("LIF connection table file not opened\n");
         return 1;
     }
 
@@ -231,7 +231,7 @@ void lif_network::set_num_threads(int num_threads)
 
 extern "C"
 {
-    DLLEXPORTLIF lif_network* lif_network_new() {return new lif_network();}
+    DLLEXPORTLIF lif_network* lif_network_new(const char *par, const char *con) {return new lif_network(par, con);}
     DLLEXPORTLIF int lif_network_num_neurons(lif_network* network) {return network->num_neurons();}
     DLLEXPORTLIF void lif_network_send_synapse(lif_network* network) {return network->send_synapse();}
     DLLEXPORTLIF void lif_network_set_biascurrent(lif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}

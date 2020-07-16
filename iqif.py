@@ -88,8 +88,9 @@ class iqnet(object):
         return libiq.iq_network_set_num_threads(self.obj, num_threads)
 
 class iznet(object):
-    def __init__(self):
-        libiz.iz_network_new.argtypes = None
+    def __init__(self, par, con):
+        #libiz.iz_network_new.argtypes = None
+        libiz.iz_network_new.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         libiz.iz_network_new.restype = ctypes.c_void_p
 
         libiz.iz_network_num_neurons.argtypes = [ctypes.c_void_p]
@@ -113,7 +114,9 @@ class iznet(object):
         libiz.iz_network_spike_rate.argtypes = [ctypes.c_void_p, ctypes.c_int]
         libiz.iz_network_spike_rate.restype = ctypes.c_float
 
-        self.obj = libiz.iz_network_new()
+        b_par = par.encode('utf-8')
+        b_con = con.encode('utf-8')
+        self.obj = libiz.iz_network_new(b_par, b_con)
 
     def num_neurons(self):
         return libiz.iz_network_num_neurons(self.obj)
@@ -137,8 +140,9 @@ class iznet(object):
         return libiz.iz_network_spike_rate(self.obj, neuron_index)
 
 class lifnet(object):
-    def __init__(self):
-        liblif.lif_network_new.argtypes = None
+    def __init__(self, par, con):
+        #liblif.lif_network_new.argtypes = None
+        liblif.lif_network_new.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         liblif.lif_network_new.restype = ctypes.c_void_p
 
         liblif.lif_network_num_neurons.argtypes = [ctypes.c_void_p]
@@ -159,7 +163,9 @@ class lifnet(object):
         liblif.lif_network_spike_rate.argtypes = [ctypes.c_void_p, ctypes.c_int]
         liblif.lif_network_spike_rate.restype = ctypes.c_float
 
-        self.obj = liblif.lif_network_new()
+        b_par = par.encode('utf-8')
+        b_con = con.encode('utf-8')
+        self.obj = liblif.lif_network_new(b_par, b_con)
 
     def num_neurons(self):
         return liblif.lif_network_num_neurons(self.obj)
@@ -179,4 +185,9 @@ class lifnet(object):
     def spike_rate(self, neuron_index):
         return liblif.lif_network_spike_rate(self.obj, neuron_index)
 
-net = iqnet("inputs/neuronParameter_IQIF_bistable.txt", "inputs/Connection_Table_IQIF_bistable.txt")
+netq = iqnet("inputs/neuronParameter_IQIF_bistable.txt", "inputs/Connection_Table_IQIF_bistable.txt")
+netz = iznet("inputs/neuronParameter_Izhikevich.txt", "inputs/Connection_Table_Izhikevich.txt")
+netl = lifnet("inputs/neuronParameter_LIF.txt", "inputs/Connection_Table_LIF.txt")
+print(netq)
+print(netz)
+print(netl)

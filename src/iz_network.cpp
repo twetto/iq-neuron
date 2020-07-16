@@ -239,7 +239,7 @@ void iz_network::set_num_threads(int num_threads)
 
 extern "C"
 {
-    DLLEXPORTIZ iz_network* iz_network_new() {return new iz_network();}
+    DLLEXPORTIZ iz_network* iz_network_new(const char *par, const char *con) {return new iz_network(par, con);}
     DLLEXPORTIZ int iz_network_num_neurons(iz_network* network) {return network->num_neurons();}
     DLLEXPORTIZ void iz_network_send_synapse(iz_network* network) {return network->send_synapse();}
     DLLEXPORTIZ void iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}

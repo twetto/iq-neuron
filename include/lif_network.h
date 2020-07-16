@@ -12,7 +12,8 @@
 class lif_network
 {
 public:
-    lif_network();
+    lif_network(const char *par = "../inputs/neuronParameter_LIF.txt",
+                const char *con = "../inputs/Connection_Table_LIF.txt");
     ~lif_network();
     int num_neurons();
     void send_synapse();
@@ -30,9 +31,9 @@ protected:  // non-copyable and non-movable
     lif_network& operator=(lif_network&& other) = delete;
 
 private:
-    int linenum_neuronParameter();
-    int set_neurons();
-    int get_weight();
+    int linenum_neuronParameter(const char *par);
+    int set_neurons(const char *par);
+    int get_weight(const char *con);
     int _num_neurons;
     int *_tau;
     float *_weight, *_scurrent, *_ncurrent, *_biascurrent;

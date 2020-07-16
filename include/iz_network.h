@@ -12,7 +12,6 @@
 class iz_network
 {
 public:
-    //iz_network();
     iz_network(const char *par = "../inputs/neuronParameter_Izhikevich.txt",
                const char *con = "../inputs/Connection_Table_Izhikevich.txt");
     ~iz_network();
