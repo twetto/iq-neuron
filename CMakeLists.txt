@@ -1,9 +1,22 @@
 cmake_minimum_required(VERSION 3.9)
-project(libiq VERSION 0.0.1 DESCRIPTION "Integer quadratic integrate-and-fire neuron library")
+project(libiq)
 include(GNUInstallDirs)
 
+set(CPACK_PACKAGE_DESCRIPTION "IQIF neuron")
+set(CPACK_PACKAGE_DESCRIPTIONSUMMARY
+    "This library creates IQIF/Izhikevich/LIF networks and runs them")
+set(CPACK_PACKAGE_VENDOR "CCLo Lab")
+set(CPACK_PACKAGE_CONTACT "chen_fu_yeh@lolab-nthu.org")
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+
+set(PROJECT_VERSION
+    "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}")
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -DVDEBUG")
+
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g")
 
 add_library(iq-network SHARED "src/iq_network.cpp" "src/iq_neuron.cpp" "src/weight_index_list.cpp")
 set_target_properties(iq-network PROPERTIES VERSION ${PROJECT_VERSION})
@@ -26,4 +39,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
 target_link_libraries(iq-network PRIVATE OpenMP::OpenMP_CXX)
 target_link_libraries(iz-network PRIVATE OpenMP::OpenMP_CXX)
 target_link_libraries(lif-network PRIVATE OpenMP::OpenMP_CXX)
+
+install(TARGETS iq-network DESTINATION lib)
+install(TARGETS iz-network DESTINATION lib)
+install(TARGETS lif-network DESTINATION lib)
 
