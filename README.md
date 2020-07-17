@@ -4,17 +4,27 @@
 
 Library for IQIF. A binary `libiq` for native C++ runtime and shared libraries `libiq-network`, `libiz-network`, and `liblif-network` are included. Please see below for running/installing instructions.
 
-## Buildtime Dependencies:
+## Dependencies
 
-* gcc (C++11)
+### Runtime:
 
 * OpenMP >= 4.5
 
+* python3-matplotlib (plotting function)
+
+### Buildtime:
+
+* gcc (C++11)
+
 * cmake >= 3.9
 
-* python 3
+* checkinstall (Debian-based packaging)
 
-## Compiling & Running:
+* base-devel (Arch-based packaging)
+
+## Compile & Run
+
+Run the IQIF directly using `libiq` binary.
 
 ```bash
 mkdir build && cd build
@@ -24,7 +34,9 @@ make -j
 ../utils/iq_plot.py
 ```
 
-## Compile & install:
+## Compile & Install Shared Libraries:
+
+`libiq-network.so`, `libiz-network.so`, and `liblif-network.so` can be used for bridging to [python-iqif](https://github.com/twetto/python-iqif).
 
 ### Universal installation
 
@@ -37,24 +49,13 @@ sudo make install
 
 ### Debian-based installation
 
-Instead of
-
-```bash
-sudo make install
-```
-
-you can use
+Instead of `sudo make install` you can use
 
 ```bash
 sudo checkinstall --pkgname iq-neuron
 ```
-.
 
-Uninstall the package with
-
-```bash
-sudo dpkg -r iq-neuron
-```
+Uninstall the package with `sudo dpkg -r iq-neuron`.
 
 ### Arch-based installation
 
@@ -63,13 +64,8 @@ First download the PKGBUILD, go to the working directory, then
 ```bash
 makepkg -si
 ```
-.
 
-Uninstall the package with
-
-```bash
-sudo pacman -Rs iq-neuron
-```
+Uninstall the package with `sudo pacman -Rs iq-neuron`.
 
 ## Configuration
 
@@ -79,7 +75,7 @@ You can change the neuron parameters in the [neuron parameter file](inputs/neuro
 
 It is recommended to use multithreading only when number of neurons is large (>100 for example).
 
-I also have an [Izhikevich model](include/iz_network.h) for comparison. You need to change the [main code](src/main.cpp) to let it work though. You can also uncomment `add_library` in the [CMakeLists](CMakeLists.txt) to get a shared library binary.
+I also have [Izhikevich model](include/iz_network.h) and [Leaky integrate-and-fire model](include/lif_network.h) for comparison. You need to change the [main code](src/main.cpp) to let it work though.
 
 ![IQIF & Izhikevich performing WTA](WTA.png)
 
