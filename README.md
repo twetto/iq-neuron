@@ -1,5 +1,7 @@
 # Integer Quadratic Integrate-and-Fire Neuron
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Library for IQIF. A binary `libiq` for native C++ runtime and shared libraries `libiq-network`, `libiz-network`, and `liblif-network` are included. Please see below for running/installing instructions.
 
 ## Buildtime Dependencies:
