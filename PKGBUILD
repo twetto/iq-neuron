@@ -1,14 +1,6 @@
-# This is an example PKGBUILD file. Use this as a start to creating your own,
-# and remove these comments. For more information, see 'man PKGBUILD'.
-# NOTE: Please fill out the license field for your package! If it is unknown,
-# then please put 'unknown'.
-
-# The following guidelines are specific to BZR, GIT, HG and SVN packages.
-# Other VCS sources are not natively supported by makepkg yet.
-
 # Maintainer: twetto <franky85912@gmail.com>
 pkgname=iq-neuron
-pkgver=0.0.2.r0.g268f982
+pkgver=0.0.4
 pkgrel=1
 pkgdesc="A library for IQIF"
 arch=('any')

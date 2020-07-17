@@ -32,20 +32,46 @@ make -j
 mkdir build && cd build
 cmake .. (-DCMAKE_INSTALL_PREFIX=<your preferred directory>)
 make -j
-make install
+sudo make install
 ```
 
-### Arch Linux-based installation
+### Debian-based installation
+
+Instead of
+
+```bash
+sudo make install
+```
+
+you can use
+
+```bash
+sudo checkinstall --pkgname iq-neuron
+```
+.
+
+Uninstall the package with
+
+```bash
+sudo dpkg -r iq-neuron
+```
+
+### Arch-based installation
 
 First download the PKGBUILD, go to the working directory, then
 
 ```bash
 makepkg -si
 ```
+.
 
-### Debian-based installation
+Uninstall the package with
 
-Coming soon...
+```bash
+sudo pacman -Rs iq-neuron
+```
+
+## Configuration
 
 You can change the synaptic weights in the [Connection Table](inputs/Connection_Table_IQIF.txt). The numbers in each lines are `pre-synapse neuron index, post-synapse neuron index, weight, time constant` respectively.
 
