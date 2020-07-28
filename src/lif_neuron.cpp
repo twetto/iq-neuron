@@ -42,7 +42,7 @@ void lif_neuron::lif_rk4(float external_current)
     _v += (fa1 + 2 * fa2 + 2 * fa3 + fa4) / 6.0;
     
     _is_firing = false;
-    if(_v > VMAX) {
+    if(_v > _threshold) {
         _spike_count++;
         _is_firing = true;
         _v = _reset;
@@ -58,7 +58,7 @@ void lif_neuron::lif_euler(float external_current)
     _v += _g * (_v - _rest) + external_current + rand()%_noise-_noise/2;
     
     _is_firing = false;
-    if(_v > VMAX) {
+    if(_v > _threshold) {
         _spike_count++;
         _is_firing = true;
         _v = _reset;
