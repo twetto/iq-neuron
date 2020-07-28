@@ -75,7 +75,7 @@ You can change the neuron parameters in the [neuron parameter file](inputs/neuro
 
 It is recommended to use multithreading only when number of neurons is large (>100 for example).
 
-I also have [Izhikevich model](include/iz_network.h) and [Leaky integrate-and-fire model](include/lif_network.h) for comparison. You need to change the [main code](src/main.cpp) to let it work though.
+I also have [Izhikevich model](include/iz_network.h) and [Leaky integrate-and-fire model](include/lif_network.h) for comparison. They are already in the shared libs. You need to change the [main code](src/main.cpp) to let it work in binary though.
 
 ![IQIF & Izhikevich performing WTA](WTA.png)
 
