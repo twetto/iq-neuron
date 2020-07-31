@@ -1,6 +1,6 @@
 # Maintainer: twetto <franky85912@gmail.com>
 pkgname=iq-neuron
-pkgver=0.0.5
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="A library for IQIF"
 arch=('any')
