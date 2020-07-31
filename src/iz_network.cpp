@@ -204,10 +204,17 @@ void iz_network::printfile(FILE **fp_potential, FILE **fp_adaptive_term)
     return;
 }
 
-void iz_network::set_biascurrent(int neuron_index, float biascurrent)
+int iz_network::set_biascurrent(int neuron_index, float biascurrent)
 {
-    *(_biascurrent + neuron_index) = biascurrent;
-    return;
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        *(_biascurrent + neuron_index) = biascurrent;
+        return 1;
+    }
+    else {
+        printf("Neuron index out of range.\n");
+        printf("Please select index within 0 ~ %d\n", _num_neurons-1);
+        return 0;
+    }
 }
 
 int iz_network::set_weight(int pre, int post, float weight, int tau)
@@ -218,8 +225,7 @@ int iz_network::set_weight(int pre, int post, float weight, int tau)
         return 1;
     }
     else {
-        printf("Pre/post number exceed index range ");
-        printf("or tau not greater than 1.\n");
+        printf("Pre/post index out of range or tau not greater than 1.\n");
         printf("Please select index within 0 ~ %d.\n", _num_neurons-1);
         return 0;
     }
@@ -257,7 +263,8 @@ extern "C"
     DLLEXPORTIZ iz_network* iz_network_new(const char *par, const char *con) {return new iz_network(par, con);}
     DLLEXPORTIZ int iz_network_num_neurons(iz_network* network) {return network->num_neurons();}
     DLLEXPORTIZ void iz_network_send_synapse(iz_network* network) {return network->send_synapse();}
-    DLLEXPORTIZ void iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIZ int iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIZ int iz_network_set_weight(iz_network* network, int pre, int post, float weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIZ float iz_network_potential(iz_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTIZ float iz_network_adaptive_term(iz_network* network, int neuron_index) {return network->adaptive_term(neuron_index);}
     DLLEXPORTIZ int iz_network_spike_count(iz_network* network, int neuron_index) {return network->spike_count(neuron_index);}
