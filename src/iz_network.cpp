@@ -210,6 +210,21 @@ void iz_network::set_biascurrent(int neuron_index, float biascurrent)
     return;
 }
 
+int iz_network::set_weight(int pre, int post, float weight, int tau)
+{
+    if(pre >= 0 && pre < _num_neurons && post >= 0 && post < _num_neurons && tau > 1) {
+        *(_weight + _num_neurons*pre + post) = weight;
+        *(_tau + _num_neurons*pre + post) = tau;
+        return 1;
+    }
+    else {
+        printf("Pre/post number exceed index range ");
+        printf("or tau not greater than 1.\n");
+        printf("Please select index within 0 ~ %d.\n", _num_neurons-1);
+        return 0;
+    }
+}
+
 float iz_network::potential(int neuron_index)
 {
     return (_neurons + neuron_index)->potential();
