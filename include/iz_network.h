@@ -19,6 +19,8 @@ public:
     void send_synapse();
     void printfile(FILE **fp_potential, FILE **fp_adaptive_term);
     int set_biascurrent(int neuron_index, float biascurrent);
+    int set_neuron(int neuron_index, float a, float b, float c,
+                   float d, float k, float rest, float threshold, int noise);
     int set_weight(int pre, int post, float weight, int tau);
     float potential(int neuron_index);
     float adaptive_term(int neuron_index);

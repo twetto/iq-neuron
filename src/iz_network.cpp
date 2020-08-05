@@ -217,6 +217,17 @@ int iz_network::set_biascurrent(int neuron_index, float biascurrent)
     }
 }
 
+int iz_network::set_neuron(int neuron_index, float a, float b, float c,
+                           float d, float k, float rest,
+                           float threshold, int noise)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set(a, b, c, d, k, rest, threshold, noise);
+        return 1;
+    }
+    else return 0;
+}
+
 int iz_network::set_weight(int pre, int post, float weight, int tau)
 {
     if(pre >= 0 && pre < _num_neurons && post >= 0 && post < _num_neurons && tau > 1) {
@@ -264,6 +275,7 @@ extern "C"
     DLLEXPORTIZ int iz_network_num_neurons(iz_network* network) {return network->num_neurons();}
     DLLEXPORTIZ void iz_network_send_synapse(iz_network* network) {return network->send_synapse();}
     DLLEXPORTIZ int iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIZ int iz_network_set_neuron(iz_network* network, int neuron_index, float a, float b, float c, float d, float k, float rest, float threshold, int noise) {return network->set_neuron(neuron_index, a, b, c, d, k, rest, threshold, noise);}
     DLLEXPORTIZ int iz_network_set_weight(iz_network* network, int pre, int post, float weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIZ float iz_network_potential(iz_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTIZ float iz_network_adaptive_term(iz_network* network, int neuron_index) {return network->adaptive_term(neuron_index);}
