@@ -207,6 +207,31 @@ void lif_network::set_biascurrent(int neuron_index, float biascurrent)
     return;
 }
 
+int lif_network::set_neuron(int neuron_index, float g, float rest,
+                            float threshold, float reset, int noise)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set(g, rest, threshold, reset, noise);
+        return 1;
+    }
+    else return 0;
+}
+
+int lif_network::set_weight(int pre, int post, float weight, int tau)
+{
+    if(pre >= 0 && pre < _num_neurons && post >= 0 && post < _num_neurons && tau > 1) {
+        *(_weight + _num_neurons*pre + post) = weight;
+        *(_tau + _num_neurons*pre + post) = tau;
+        return 1;
+    }
+    else {
+        printf("Pre/post index out of range or tau not greater than 1.\n");
+        printf("Please select index within 0 ~ %d.\n", _num_neurons-1);
+        return 0;
+    }
+}
+
+
 float lif_network::potential(int neuron_index)
 {
     return (_neurons + neuron_index)->potential();
@@ -235,6 +260,8 @@ extern "C"
     DLLEXPORTLIF int lif_network_num_neurons(lif_network* network) {return network->num_neurons();}
     DLLEXPORTLIF void lif_network_send_synapse(lif_network* network) {return network->send_synapse();}
     DLLEXPORTLIF void lif_network_set_biascurrent(lif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTLIF int lif_network_set_neuron(lif_network* network, int neuron_index, float g, float rest, float threshold, float reset, int noise) {return network->set_neuron(neuron_index, g, rest, threshold, reset, noise);}
+    DLLEXPORTLIF int lif_network_set_weight(lif_network* network, int pre, int post, float weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTLIF float lif_network_potential(lif_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTLIF int lif_network_spike_count(lif_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     DLLEXPORTLIF float lif_network_spike_rate(lif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}

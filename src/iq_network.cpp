@@ -108,7 +108,7 @@ int iq_network::get_weight(const char *con)
         *(_weight + _num_neurons*i + j) = weight;
         *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
-        if(tau >= 8) {
+        if(tau >= 10) {
             *(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
             printf("synapse[%d][%d]: decays every %d steps\n", i, j, *(_f + _num_neurons*i + j));
         }
@@ -246,6 +246,32 @@ void iq_network::set_biascurrent(int neuron_index, int biascurrent)
     return;
 }
 
+int iq_network::set_neuron(int neuron_index, int rest, int threshold,
+                           int reset, int a, int b, int noise)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set(rest, threshold, reset, a, b, noise);
+        return 1;
+    }
+    else return 0;
+}
+
+int iq_network::set_weight(int pre, int post, int weight, int tau)
+{
+    if(pre >= 0 && pre < _num_neurons && post >= 0 && post < _num_neurons && tau >= 10) {
+        *(_weight + _num_neurons*pre + post) = weight;
+        *(_tau + _num_neurons*pre + post) = tau;
+        *(_f + _num_neurons*pre + post) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
+        return 1;
+    }
+    else {
+        printf("Pre/post index out of range or tau not greater than 10.\n");
+        printf("Please select index within 0 ~ %d.\n", _num_neurons-1);
+        printf("Bad tau[%d][%d] = %d\n", pre, post, *(_tau + _num_neurons*pre + post));
+        return 0;
+    }
+}
+
 int iq_network::potential(int neuron_index)
 {
     return (_neurons + neuron_index)->potential();
@@ -274,6 +300,8 @@ extern "C"
     DLLEXPORTIQ int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
     DLLEXPORTIQ void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
     DLLEXPORTIQ void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
+    DLLEXPORTIQ int iq_network_set_weight(iq_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTIQ int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     DLLEXPORTIQ float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
