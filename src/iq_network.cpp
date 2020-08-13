@@ -240,10 +240,17 @@ void iq_network::printfile(FILE **fp)
     return;
 }
 
-void iq_network::set_biascurrent(int neuron_index, int biascurrent)
+int iq_network::set_biascurrent(int neuron_index, int biascurrent)
 {
-    *(_biascurrent + neuron_index) = biascurrent;
-    return;
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        *(_biascurrent + neuron_index) = biascurrent;
+        return 1;
+    }
+    else {
+        printf("Neuron index out of range.\n");
+        printf("Please select index within 0 ~ %d\n", _num_neurons-1);
+        return 0;
+    }
 }
 
 int iq_network::set_neuron(int neuron_index, int rest, int threshold,
@@ -299,7 +306,7 @@ extern "C"
     DLLEXPORTIQ iq_network* iq_network_new(const char *par, const char *con) {return new iq_network(par, con);}
     DLLEXPORTIQ int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
     DLLEXPORTIQ void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
-    DLLEXPORTIQ void iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIQ int iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
     DLLEXPORTIQ int iq_network_set_weight(iq_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
