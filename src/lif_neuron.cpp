@@ -55,13 +55,19 @@ void lif_neuron::lif_rk4(float external_current)
 
 void lif_neuron::lif_euler(float external_current)
 {
-    _v += _g * (_v - _rest) + external_current + rand()%_noise-_noise/2;
+    if(_r_count == 0) {
+        _v += _g * (_v - _rest) + external_current + rand()%_noise-_noise/2;
+    }
+    else {
+        _r_count--;
+    }
     
     _is_firing = false;
     if(_v > _threshold) {
         _spike_count++;
         _is_firing = true;
         _v = _reset;
+        _r_count = _r_period;
     }
     //else if(_v < 0) _v = 0;
 

@@ -25,6 +25,7 @@ private:
     int _noise;
     const float VMAX = 255;
     int _spike_count = 0;
+    int _r_count = 0, _r_period = 0;
     bool _is_set = false, _is_firing = false;
 };
 
