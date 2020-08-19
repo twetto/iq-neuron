@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAX_POTENTIAL 255
-
 class iq_network;
 
 class iq_neuron
@@ -32,6 +30,7 @@ private:
     int t_neuron;                                   // Iterator of timestep
     int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
     int x , f_min, _spike_count = 0;
+    int VMAX = 255;
     bool _is_set = false, _is_firing = false;
 };
 
