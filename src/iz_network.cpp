@@ -207,6 +207,7 @@ void iz_network::printfile(FILE **fp_potential, FILE **fp_adaptive_term)
 int iz_network::set_biascurrent(int neuron_index, float biascurrent)
 {
     if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        printf("%f\n", biascurrent);
         *(_biascurrent + neuron_index) = biascurrent;
         return 1;
     }
