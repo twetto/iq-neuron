@@ -266,7 +266,7 @@ extern "C"
     DLLEXPORTLIF lif_network* lif_network_new(const char *par, const char *con) {return new lif_network(par, con);}
     DLLEXPORTLIF int lif_network_num_neurons(lif_network* network) {return network->num_neurons();}
     DLLEXPORTLIF void lif_network_send_synapse(lif_network* network) {return network->send_synapse();}
-    DLLEXPORTLIF int lif_network_set_biascurrent(lif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTLIF int lif_network_set_biascurrent(lif_network* network, int neuron_index, float biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     DLLEXPORTLIF int lif_network_set_neuron(lif_network* network, int neuron_index, float g, float rest, float threshold, float reset, int noise) {return network->set_neuron(neuron_index, g, rest, threshold, reset, noise);}
     DLLEXPORTLIF int lif_network_set_weight(lif_network* network, int pre, int post, float weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTLIF float lif_network_potential(lif_network* network, int neuron_index) {return network->potential(neuron_index);}

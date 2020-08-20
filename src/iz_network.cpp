@@ -275,7 +275,7 @@ extern "C"
     DLLEXPORTIZ iz_network* iz_network_new(const char *par, const char *con) {return new iz_network(par, con);}
     DLLEXPORTIZ int iz_network_num_neurons(iz_network* network) {return network->num_neurons();}
     DLLEXPORTIZ void iz_network_send_synapse(iz_network* network) {return network->send_synapse();}
-    DLLEXPORTIZ int iz_network_set_biascurrent(iz_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTIZ int iz_network_set_biascurrent(iz_network* network, int neuron_index, float biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     DLLEXPORTIZ int iz_network_set_neuron(iz_network* network, int neuron_index, float a, float b, float c, float d, float k, float rest, float threshold, int noise) {return network->set_neuron(neuron_index, a, b, c, d, k, rest, threshold, noise);}
     DLLEXPORTIZ int iz_network_set_weight(iz_network* network, int pre, int post, float weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIZ float iz_network_potential(iz_network* network, int neuron_index) {return network->potential(neuron_index);}
