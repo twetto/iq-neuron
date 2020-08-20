@@ -59,6 +59,8 @@ void iz_neuron::iz_rk4(float external_current)
         _u += _d;
     }
     //else if(_v < 0) _v = 0;
+    printf("%f\n", _v);
+    printf("%f\n", _u);
 
     t_neuron++;
     return;
