@@ -80,6 +80,8 @@ void iz_neuron::iz_euler(float external_current)
     }
     //else if(_v < 0) _v = 0;
 
+    printf("%f\n", _v);
+    printf("%f\n", _u);
     t_neuron++;
     return;
 }
