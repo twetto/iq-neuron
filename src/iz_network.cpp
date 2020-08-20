@@ -23,6 +23,9 @@ iz_network::iz_network(const char *par, const char *con)
     _ncurrent = new float[_num_neurons]();
     _biascurrent = new float[_num_neurons]();
 
+    printf("%s\n", con);
+    printf("%s\n", par);
+
     get_weight(con);
     set_neurons(par);
     return;
