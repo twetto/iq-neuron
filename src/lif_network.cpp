@@ -185,7 +185,7 @@ void lif_network::send_synapse()
 
     /* solving DE, reset post-syn current */
     for(int i = 0; i < _num_neurons; i++) {
-        (_neurons + i)->lif_rk4(*(_ncurrent + i) + *(_biascurrent + i));
+        (_neurons + i)->lif_euler(*(_ncurrent + i) + *(_biascurrent + i));
         *(_ncurrent + i) = 0;
     }
     return;
