@@ -160,7 +160,7 @@ void iq_network::send_synapse()
                             //*(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                             *(pts + j->_data) -= *(pts + j->_data) >> 3;
                             if(*(pts + j->_data) < 8 && *(pts + j->_data) > 0)
-                                *(pts + j->_data)--;
+                                *(pts + j->_data) -= 1;
                         }
                         (*(ptn + j->_data))++;
 
@@ -176,7 +176,7 @@ void iq_network::send_synapse()
                             //*(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                             *(pts + j->_data) -= *(pts + j->_data) >> 3;
                             if(*(pts + j->_data) < 8 && *(pts + j->_data) > 0)
-                                *(pts + j->_data)--;
+                                *(pts + j->_data) -= 1;
                         }
                         (*(ptn + j->_data))++;
                         j = j->_next;
@@ -210,7 +210,7 @@ void iq_network::send_synapse()
                         //*(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                         *(pts + j->_data) -= *(pts + j->_data) >> 3;
                         if(*(pts + j->_data) < 8 && *(pts + j->_data) > 0)
-                            *(pts + j->_data)--;
+                            *(pts + j->_data) -= 1;
                     }
                     (*(ptn + j->_data))++;
                     j = j->_next;
@@ -225,7 +225,7 @@ void iq_network::send_synapse()
                         //*(pts + j->_data) = *(pts + j->_data) * 7 / 8;
                         *(pts + j->_data) -= *(pts + j->_data) >> 3;
                         if(*(pts + j->_data) < 8 && *(pts + j->_data) > 0)
-                            *(pts + j->_data)--;
+                            *(pts + j->_data) -= 1;
                     }
                     (*(ptn + j->_data))++;
                     j = j->_next;
