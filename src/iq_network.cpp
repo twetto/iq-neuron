@@ -318,7 +318,6 @@ void iq_network::set_num_threads(int num_threads)
 {
     _num_threads = num_threads;
     omp_set_num_threads(num_threads);
-    printf("number of threads: %d\n", _num_threads);
     return;
 }
 
