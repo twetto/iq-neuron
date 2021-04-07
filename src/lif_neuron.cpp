@@ -131,7 +131,7 @@ void ilif_neuron::set(int inv_g, int rest, int threshold,
     return;
 }
 
-void ilif_neuron::ilif_euler(int external_current)
+void ilif_neuron::ilif(int external_current)
 {
     if(_r_count == 0) {
         _v += (_v - _rest) >> _inv_g + external_current + rand()%_noise-_noise/2;

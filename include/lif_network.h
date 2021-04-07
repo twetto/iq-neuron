@@ -54,15 +54,10 @@ public:
     int num_neurons();
     void send_synapse();
     void printfile(FILE **fp);
-    //int set_biascurrent(int neuron_index, float biascurrent);
     int set_biascurrent(int neuron_index, int biascurrent);
-    //int set_neuron(int neuron_index, float g, float rest,
-    //               float threshold, float reset, int noise);
     int set_neuron(int neuron_index, float g, int rest,
                    int threshold, int reset, int noise);
-    //int set_weight(int pre, int post, float weight, int tau);
     int set_weight(int pre, int post, int weight, int tau);
-    //float potential(int neuron_index);
     int potential(int neuron_index);
     int spike_count(int neuron_index);
     float spike_rate(int neuron_index);
@@ -80,7 +75,6 @@ private:
     int get_weight(const char *con);
     int _num_neurons;
     int *_tau, *_f, *_n;
-    //float *_weight, *_scurrent, *_ncurrent, *_biascurrent;
     int *_weight, *_scurrent, *_ncurrent, *_biascurrent;
     ilif_neuron *_neurons;
     weight_index_list *_wlist;
