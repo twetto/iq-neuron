@@ -55,7 +55,7 @@ public:
     void send_synapse();
     void printfile(FILE **fp);
     int set_biascurrent(int neuron_index, int biascurrent);
-    int set_neuron(int neuron_index, float g, int rest,
+    int set_neuron(int neuron_index, int inv_g, int rest,
                    int threshold, int reset, int noise);
     int set_weight(int pre, int post, int weight, int tau);
     int potential(int neuron_index);

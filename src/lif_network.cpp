@@ -370,12 +370,12 @@ int ilif_network::get_weight(const char *con)
     return 0;
 }
 
-int llif_network::num_neurons()
+int ilif_network::num_neurons()
 {
     return _num_neurons;
 }
 
-void llif_network::send_synapse()
+void ilif_network::send_synapse()
 {
     /* accumulating/decaying synapse current */
     if(_num_threads > 1) {
@@ -459,7 +459,7 @@ void llif_network::send_synapse()
 
     /* solving DE, reset post-syn current */
     for(int i = 0; i < _num_neurons; i++) {
-        (_neurons + i)->ilif_euler(*(_ncurrent + i) + *(_biascurrent + i));
+        (_neurons + i)->ilif(*(_ncurrent + i) + *(_biascurrent + i));
         *(_ncurrent + i) = 0;
     }
     return;
