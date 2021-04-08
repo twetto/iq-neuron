@@ -549,5 +549,15 @@ extern "C"
     DLLEXPORTLIF int lif_network_spike_count(lif_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     DLLEXPORTLIF float lif_network_spike_rate(lif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
     DLLEXPORTLIF void lif_network_set_num_threads(lif_network* network, int num_threads) {return network->set_num_threads(num_threads);}
+    DLLEXPORTLIF ilif_network* ilif_network_new(const char *par, const char *con) {return new ilif_network(par, con);}
+    DLLEXPORTLIF int ilif_network_num_neurons(ilif_network* network) {return network->num_neurons();}
+    DLLEXPORTLIF void ilif_network_send_synapse(ilif_network* network) {return network->send_synapse();}
+    DLLEXPORTLIF int ilif_network_set_biascurrent(ilif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
+    DLLEXPORTLIF int ilif_network_set_neuron(ilif_network* network, int neuron_index, int inv_g, int rest, int threshold, int reset, int noise) {return network->set_neuron(neuron_index, inv_g, rest, threshold, reset, noise);}
+    DLLEXPORTLIF int ilif_network_set_weight(ilif_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
+    DLLEXPORTLIF int ilif_network_potential(ilif_network* network, int neuron_index) {return network->potential(neuron_index);}
+    DLLEXPORTLIF int ilif_network_spike_count(ilif_network* network, int neuron_index) {return network->spike_count(neuron_index);}
+    DLLEXPORTLIF float ilif_network_spike_rate(ilif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
+    DLLEXPORTLIF void ilif_network_set_num_threads(ilif_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }
 

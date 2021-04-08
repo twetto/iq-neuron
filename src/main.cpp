@@ -5,6 +5,7 @@
 
 #include "iq_network.h"
 #include "iz_network.h"
+#include "lif_network.h"
 #include <stdio.h>
 #include <random>
 #include <time.h>
@@ -17,14 +18,18 @@ int main(void)
     double time_total;
 
     int i;
-    iq_network network_iq("../inputs/neuronParameter_IQIF_bistable.txt", "../inputs/Connection_Table_IQIF_bistable.txt");
+    //iq_network network_iq("../inputs/neuronParameter_IQIF_bistable.txt", "../inputs/Connection_Table_IQIF_bistable.txt");
+    ilif_network network_ilif("../inputs/neuronParameter_ILIF.txt", "../inputs/Connection_Table_ILIF.txt");
     //iz_network network_iz("neuron_iz.txt", "table_iz.txt");
-    int iq_num_neurons = network_iq.num_neurons();
+    //int iq_num_neurons = network_iq.num_neurons();
+    int ilif_num_neurons = network_ilif.num_neurons();
     //int iz_num_neurons = network_iz.num_neurons();
     start = clock();
-    char filename[] = "iq_output_number.txt";
+    //char filename[] = "iq_output_number.txt";
+    char filename[] = "ilif_output_number.txt";
     //char filename[] = "iz_output_p_number.txt";
-    FILE** fp = (FILE**) malloc(sizeof(FILE*) * iq_num_neurons);
+    //FILE** fp = (FILE**) malloc(sizeof(FILE*) * iq_num_neurons);
+    FILE** fp = (FILE**) malloc(sizeof(FILE*) * ilif_num_neurons);
     //FILE** fp_p = (FILE**) malloc(sizeof(FILE*) * iz_num_neurons);
     //FILE** fp_a = (FILE**) malloc(sizeof(FILE*) * iz_num_neurons);
 
@@ -32,9 +37,11 @@ int main(void)
     //network_iq.set_num_threads(4);
     //network_iz.set_num_threads(4);
 
-    for(i = 0; i < iq_num_neurons; i++) {
+    //for(i = 0; i < iq_num_neurons; i++) {
+    for(i = 0; i < ilif_num_neurons; i++) {
     //for(i = 0; i < iz_num_neurons; i++) {
-        sprintf(filename, "iq_output_%d.txt", i);
+        //sprintf(filename, "iq_output_%d.txt", i);
+        sprintf(filename, "ilif_output_%d.txt", i);
         fp[i] = fopen(filename, "w");
         //sprintf(filename, "iz_output_p_%d.txt", i);
         //fp_p[i] = fopen(filename, "w");
@@ -56,9 +63,10 @@ int main(void)
         while(idx >= 0) {
             //printf("How much current do you want to insert?\n");
             scanf(" %d", &bias);
-            network_iq.set_biascurrent(idx, bias);
+            //network_iq.set_biascurrent(idx, bias);
+            network_ilif.set_biascurrent(idx, bias);
             //network_iz.set_biascurrent(idx, bias);
-            //printf("neuron %d is receiving current %d\n", idx, bias);
+            printf("neuron %d is receiving current %d\n", idx, bias);
 
             //printf("Neuron to insert bias current:\n");
             scanf(" %d", &idx);
@@ -66,8 +74,10 @@ int main(void)
 
         //printf("Set complete; sending synapses...\n");
         for(i = 0; i < steps; i++) {
-            network_iq.send_synapse();
-            network_iq.printfile(fp);
+            //network_iq.send_synapse();
+            //network_iq.printfile(fp);
+            network_ilif.send_synapse();
+            network_ilif.printfile(fp);
             //network_iz.send_synapse();
             //network_iz.printfile(fp_p, fp_a);
         }
@@ -92,7 +102,8 @@ int main(void)
 
     //printf("Simulation finished. Quitting...\n");
 
-    for(i = 0; i < iq_num_neurons; i++) {
+    //for(i = 0; i < iq_num_neurons; i++) {
+    for(i = 0; i < ilif_num_neurons; i++) {
     //for(i = 0; i < iz_num_neurons; i++) {
         fclose(fp[i]);
         //fclose(fp_p[i]);
