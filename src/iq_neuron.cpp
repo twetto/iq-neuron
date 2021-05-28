@@ -7,13 +7,32 @@
 using namespace std;
 
 iq_neuron::iq_neuron(int rest, int threshold,
-                     int reset, int a, int b, int noise)
+                     //int reset, int a, int b, int noise)
+                     int reset, float a, float b, int noise)
 {
     x = rest;                               // initialize with rest potential
     t_neuron = 0;
+    dc = 0;
     f_min = (a*rest + b*threshold) / (a+b); // dV/dt and others
-    _a = a;
-    _b = b;
+    //_a = a;
+    //_b = b;
+    dd = 100;
+    if(a < 1) {
+        dna = (int) a * 100;
+        _a = 1;
+    }
+    else {
+        dna = 100;
+        _a = (int) a;
+    }
+    if(b < 1) {
+        dnb = (int) b * 100;
+        _b = 1;
+    }
+    else {
+        dnb = 100;
+        _b = (int) b;
+    }
     _rest = rest;
     _threshold = threshold;
     _reset = reset;
@@ -30,13 +49,32 @@ bool iq_neuron::is_set()
 }
 
 void iq_neuron::set(int rest, int threshold,
-                    int reset, int a, int b, int noise)
+                    //int reset, int a, int b, int noise)
+                    int reset, float a, float b, int noise)
 {
     x = rest;
     t_neuron = 0;
+    dc = 0;
     f_min = (a*rest + b*threshold) / (a+b);
     _a = a;
     _b = b;
+    dd = 100;
+    if(a < 1) {
+        dna = (int) a * 100;
+        _a = 1;
+    }
+    else {
+        dna = 100;
+        _a = (int) a;
+    }
+    if(b < 1) {
+        dnb = (int) b * 100;
+        _b = 1;
+    }
+    else {
+        dnb = 100;
+        _b = (int) b;
+    }
     _rest = rest;
     _threshold = threshold;
     _reset = reset;
@@ -52,11 +90,14 @@ void iq_neuron::iq(int external_current)
     int f;
 
     /* solving dV/dt */
-    if(x < f_min)
+    if(x < f_min && dc < dna)
         f = _a * (_rest - x);
-    else
+    else if(x >= f_min && dc < dnb)
         f = _b * (x - _threshold);
-    x += (f >> 3) + external_current + rand()%_noise - (_noise >> 1);
+    else
+        f = 0;                      // skip the dynamics for (dd - dn) times
+    //x += (f >> 3) + external_current + rand()%_noise - (_noise >> 1);
+    x += f + external_current + rand()%_noise - (_noise >> 1);
 
     /* fire if exceeding action potential */
     _is_firing = false;
@@ -66,6 +107,8 @@ void iq_neuron::iq(int external_current)
         x = _reset;
     }
     //else if(x < 0) x = 0;
+    dc++;
+    if(dc >= dd) dc = 0;
     t_neuron++;
     return;
 }

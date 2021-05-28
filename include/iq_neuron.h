@@ -6,6 +6,7 @@
 #define IQ_NEURON_H
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 class iq_network;
 
@@ -14,10 +15,12 @@ class iq_neuron
 public:
     iq_neuron() {};
     iq_neuron(int rest, int threshold,      // Set equation & noise strength
-              int reset, int a, int b, int noise);
+              //int reset, int a, int b, int noise);
+              int reset, float a, float b, int noise);
     bool is_set();
     void set(int rest, int threshold,       // Set equation & noise strength
-             int reset, int a, int b, int noise);
+             //int reset, int a, int b, int noise);
+             int reset, float a, float b, int noise);
     void iq(int external_current);          // Solve ODE
     int potential();
     bool is_firing();
@@ -27,8 +30,12 @@ public:
     friend class iq_network;                // For direct access to _is_firing
 
 private:
-    int t_neuron;                                   // Iterator of timestep
-    int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
+    int t_neuron;                           // Iterator of timestep
+    //int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
+    int _rest, _threshold, _reset, _noise;  // IQ neuron parameters
+    float _a, _b;
+    int dna, dnb, dd, dc;                   // decay numerator/
+                                            // denominator/counter
     int x , f_min, _spike_count = 0;
     int VMAX = 255;
     bool _is_set = false, _is_firing = false;

@@ -47,14 +47,17 @@ iq_network::~iq_network()
 int iq_network::linenum_neuronParameter(const char *par)
 {
     int i[7], linenum = 0;
+    float f[2];
     FILE *fp = fopen(par, "r");
     if(fp == NULL) {
         printf("IQIF parameter file not opened\n");
         return -1;
     }
     
-    while(fscanf(fp, " %d %d %d %d %d %d %d", &i[0], &i[1], &i[2],
-            &i[3], &i[4], &i[5], &i[6]) == 7) {
+    //while(fscanf(fp, " %d %d %d %d %d %d %d", &i[0], &i[1], &i[2],
+    //        &i[3], &i[4], &i[5], &i[6]) == 7) {
+    while(fscanf(fp, " %d %d %d %d %f %f %d", &i[0], &i[1], &i[2],
+            &i[3], &f[0], &f[1], &i[6]) == 7) {
         linenum++;
     }
     fclose(fp);
@@ -63,7 +66,9 @@ int iq_network::linenum_neuronParameter(const char *par)
 
 int iq_network::set_neurons(const char *par)
 {
-    int i, rest, threshold, reset, a, b, noise;
+    //int i, rest, threshold, reset, a, b, noise;
+    int i, rest, threshold, reset, noise;
+    float a, b;
     FILE *fp;
 
     /*
@@ -74,7 +79,8 @@ int iq_network::set_neurons(const char *par)
     }
     */
     fp = fopen(par, "r");
-    while(fscanf(fp, " %d %d %d %d %d %d %d", &i, &rest, &threshold,
+    //while(fscanf(fp, " %d %d %d %d %d %d %d", &i, &rest, &threshold,
+    while(fscanf(fp, " %d %d %d %d %f %f %d", &i, &rest, &threshold,
             &reset, &a, &b, &noise) == 7) {
         (_neurons + i)->set(rest, threshold, reset, a, b, noise);
     }
@@ -274,7 +280,8 @@ int iq_network::set_biascurrent(int neuron_index, int biascurrent)
 }
 
 int iq_network::set_neuron(int neuron_index, int rest, int threshold,
-                           int reset, int a, int b, int noise)
+                           //int reset, int a, int b, int noise)
+                           int reset, float a, float b, int noise)
 {
     if(neuron_index >= 0 && neuron_index < _num_neurons) {
         (_neurons + neuron_index)->set(rest, threshold, reset, a, b, noise);
@@ -327,7 +334,8 @@ extern "C"
     DLLEXPORTIQ int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
     DLLEXPORTIQ void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
     DLLEXPORTIQ int iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
-    DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
+    //DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
+    DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, float a, float b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
     DLLEXPORTIQ int iq_network_set_weight(iq_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTIQ int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
