@@ -22,17 +22,6 @@ Library for IQIF. A binary `libiq` for native C++ runtime and shared libraries `
 
 * base-devel (Arch-based packaging)
 
-## Compile & Run
-
-Run the IQIF directly using `libiq` binary.
-
-```bash
-mkdir build && cd build
-cmake ..
-make -j
-./libiq < ../inputs/session.txt (or use your custom session)
-../utils/iq_plot.py
-```
 
 ## Compile & Install Shared Libraries:
 
@@ -67,7 +56,10 @@ makepkg -si
 
 Uninstall the package with `sudo pacman -Rs iq-neuron`.
 
-## Configuration
+
+## Configuration & Usage
+
+Please see the [tutorial](tutorial/tutorial.md) first.
 
 You can change the synaptic weights in the [Connection Table](inputs/Connection_Table_IQIF.txt). The numbers in each lines are `pre-synapse neuron index, post-synapse neuron index, weight, time constant` respectively.
 
@@ -79,3 +71,15 @@ I also have [Izhikevich model](include/iz_network.h) and [Leaky integrate-and-fi
 
 ![IQIF & Izhikevich performing WTA](WTA.png)
 
+
+## Compile & Run
+
+Run the IQIF directly using `libiq` binary. Use this method if you feel more comfortable with C++ instead of Python.
+
+```bash
+mkdir build && cd build
+cmake ..
+make -j
+./libiq < ../inputs/session.txt (or use your custom session)
+../utils/iq_plot.py
+```
