@@ -22,6 +22,7 @@ public:
     int set_biascurrent(int neuron_index, int biascurrent);
     int set_neuron(int neuron_index, int rest, int threshold, int reset, int a, int b, int noise);
     int set_weight(int pre, int post, int weight, int tau);
+    int set_vmax(int neuron_index, int vmax);
     int potential(int neuron_index);
     int spike_count(int neuron_index);
     float spike_rate(int neuron_index);

@@ -47,6 +47,12 @@ void iq_neuron::set(int rest, int threshold,
     return;
 }
 
+void iq_neuron::set_vmax(int vmax)
+{
+    VMAX = vmax;
+    return;
+}
+
 void iq_neuron::iq(int external_current)
 {
     int f;

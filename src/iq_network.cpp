@@ -299,6 +299,15 @@ int iq_network::set_weight(int pre, int post, int weight, int tau)
     }
 }
 
+int iq_network::set_vmax(int neuron_index, int vmax)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmax(vmax);
+        return 0;
+    }
+    else return 1;
+}
+
 int iq_network::potential(int neuron_index)
 {
     return (_neurons + neuron_index)->potential();

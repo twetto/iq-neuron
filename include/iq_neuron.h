@@ -18,6 +18,7 @@ public:
     bool is_set();
     void set(int rest, int threshold,       // Set equation & noise strength
              int reset, int a, int b, int noise);
+    void set_vmax(int vmax);
     void iq(int external_current);          // Solve ODE
     int potential();
     bool is_firing();
