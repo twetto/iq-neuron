@@ -81,7 +81,7 @@ void lif_neuron::lif_euler(float external_current)
         _v = _reset;
         _r_count = _r_period;
     }
-    //else if(_v < 0) _v = 0;
+    else if(_v < VMIN) _v = VMIN;
 
     t_neuron++;
     return;
@@ -171,7 +171,7 @@ void ilif_neuron::ilif(int external_current)
         _v = _reset;
         _r_count = _r_period;
     }
-    //else if(_v < 0) _v = 0;
+    else if(_v < VMIN) _v = VMIN;
 
     t_neuron++;
     return;
