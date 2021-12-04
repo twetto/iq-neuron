@@ -10,6 +10,8 @@ public:
     bool is_set();
     void set(float a, float b, float c, float d, float k,
              float rest, float threshold, int noise);
+    void set_vmax(float vmax);
+    void set_vmin(float vmin);
     void iz_rk4(float external_current);
     void iz_euler(float external_current);
     float potential();
@@ -28,6 +30,7 @@ private:
     float _k, _rest, _threshold;
     int _noise;
     float VMAX = 255;
+    float VMIN = 0;
     int _spike_count = 0;
     bool _is_set = false, _is_firing = false;
 };

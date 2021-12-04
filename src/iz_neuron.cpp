@@ -31,6 +31,18 @@ void iz_neuron::set(float a, float b, float c, float d, float k,
     return;
 }
 
+void iz_neuron::set_vmax(float vmax)
+{
+    VMAX = vmax;
+    return;
+}
+
+void iz_neuron::set_vmin(float vmin)
+{
+    VMIN = vmin;
+    return;
+}
+
 void iz_neuron::iz_rk4(float external_current)
 {
     float fa1, fa2, fa3, fa4;

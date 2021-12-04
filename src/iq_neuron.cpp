@@ -53,6 +53,12 @@ void iq_neuron::set_vmax(int vmax)
     return;
 }
 
+void iq_neuron::set_vmin(int vmin)
+{
+    VMIN = vmin;
+    return;
+}
+
 void iq_neuron::iq(int external_current)
 {
     int f;
@@ -71,7 +77,7 @@ void iq_neuron::iq(int external_current)
         _is_firing = true;
         x = _reset;
     }
-    //else if(x < 0) x = 0;
+    else if(x < VMIN) x = VMIN;
     t_neuron++;
     return;
 }

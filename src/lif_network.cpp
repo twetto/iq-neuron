@@ -238,6 +238,23 @@ int lif_network::set_weight(int pre, int post, float weight, int tau)
     }
 }
 
+int lif_network::set_vmax(int neuron_index, float vmax)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmax(vmax);
+        return 0;
+    }
+    else return 1;
+}
+
+int lif_network::set_vmin(int neuron_index, float vmin)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmin(vmin);
+        return 0;
+    }
+    else return 1;
+}
 
 float lif_network::potential(int neuron_index)
 {
@@ -514,6 +531,23 @@ int ilif_network::set_weight(int pre, int post, int weight, int tau)
     }
 }
 
+int ilif_network::set_vmax(int neuron_index, int vmax)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmax(vmax);
+        return 0;
+    }
+    else return 1;
+}
+
+int ilif_network::set_vmin(int neuron_index, int vmin)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmin(vmin);
+        return 0;
+    }
+    else return 1;
+}
 
 int ilif_network::potential(int neuron_index)
 {
@@ -545,6 +579,8 @@ extern "C"
     DLLEXPORTLIF int lif_network_set_biascurrent(lif_network* network, int neuron_index, float biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     DLLEXPORTLIF int lif_network_set_neuron(lif_network* network, int neuron_index, float g, float rest, float threshold, float reset, int noise) {return network->set_neuron(neuron_index, g, rest, threshold, reset, noise);}
     DLLEXPORTLIF int lif_network_set_weight(lif_network* network, int pre, int post, float weight, int tau) {return network->set_weight(pre, post, weight, tau);}
+    DLLEXPORTLIF int lif_network_set_vmax(lif_network* network, int neuron_index, float vmax) {return network->set_vmax(neuron_index, vmax);}
+    DLLEXPORTLIF int lif_network_set_vmin(lif_network* network, int neuron_index, float vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTLIF float lif_network_potential(lif_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTLIF int lif_network_spike_count(lif_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     DLLEXPORTLIF float lif_network_spike_rate(lif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
@@ -555,6 +591,8 @@ extern "C"
     DLLEXPORTLIF int ilif_network_set_biascurrent(ilif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     DLLEXPORTLIF int ilif_network_set_neuron(ilif_network* network, int neuron_index, int inv_g, int rest, int threshold, int reset, int noise) {return network->set_neuron(neuron_index, inv_g, rest, threshold, reset, noise);}
     DLLEXPORTLIF int ilif_network_set_weight(ilif_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
+    DLLEXPORTLIF int ilif_network_set_vmax(ilif_network* network, int neuron_index, int vmax) {return network->set_vmax(neuron_index, vmax);}
+    DLLEXPORTLIF int ilif_network_set_vmin(ilif_network* network, int neuron_index, int vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTLIF int ilif_network_potential(ilif_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTLIF int ilif_network_spike_count(ilif_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     DLLEXPORTLIF float ilif_network_spike_rate(ilif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}

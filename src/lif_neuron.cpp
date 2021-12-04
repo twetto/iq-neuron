@@ -27,6 +27,18 @@ void lif_neuron::set(float g, float rest, float threshold,
     return;
 }
 
+void lif_neuron::set_vmax(float vmax)
+{
+    VMAX = vmax;
+    return;
+}
+
+void lif_neuron::set_vmin(float vmin)
+{
+    VMIN = vmin;
+    return;
+}
+
 void lif_neuron::lif_rk4(float external_current)
 {
     float fa1, fa2, fa3, fa4;
@@ -128,6 +140,18 @@ void ilif_neuron::set(int inv_g, int rest, int threshold,
     _noise = noise;
     _v = rest;
     _is_set = true;
+    return;
+}
+
+void ilif_neuron::set_vmax(int vmax)
+{
+    VMAX = vmax;
+    return;
+}
+
+void ilif_neuron::set_vmin(int vmin)
+{
+    VMIN = vmin;
     return;
 }
 

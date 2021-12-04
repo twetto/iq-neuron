@@ -308,6 +308,15 @@ int iq_network::set_vmax(int neuron_index, int vmax)
     else return 1;
 }
 
+int iq_network::set_vmin(int neuron_index, int vmin)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmin(vmin);
+        return 0;
+    }
+    else return 1;
+}
+
 int iq_network::potential(int neuron_index)
 {
     return (_neurons + neuron_index)->potential();
@@ -339,6 +348,7 @@ extern "C"
     DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
     DLLEXPORTIQ int iq_network_set_weight(iq_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIQ int iq_network_set_vmax(iq_network* network, int neuron_index, int vmax) {return network->set_vmax(neuron_index, vmax);}
+    DLLEXPORTIQ int iq_network_set_vmin(iq_network* network, int neuron_index, int vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTIQ int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     DLLEXPORTIQ float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}

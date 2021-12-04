@@ -242,6 +242,24 @@ int iz_network::set_weight(int pre, int post, float weight, int tau)
     }
 }
 
+int iz_network::set_vmax(int neuron_index, float vmax)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmax(vmax);
+        return 0;
+    }
+    else return 1;
+}
+
+int iz_network::set_vmin(int neuron_index, float vmin)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_vmin(vmin);
+        return 0;
+    }
+    else return 1;
+}
+
 float iz_network::potential(int neuron_index)
 {
     return (_neurons + neuron_index)->potential();
@@ -277,6 +295,8 @@ extern "C"
     DLLEXPORTIZ int iz_network_set_biascurrent(iz_network* network, int neuron_index, float biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     DLLEXPORTIZ int iz_network_set_neuron(iz_network* network, int neuron_index, float a, float b, float c, float d, float k, float rest, float threshold, int noise) {return network->set_neuron(neuron_index, a, b, c, d, k, rest, threshold, noise);}
     DLLEXPORTIZ int iz_network_set_weight(iz_network* network, int pre, int post, float weight, int tau) {return network->set_weight(pre, post, weight, tau);}
+    DLLEXPORTIZ int iz_network_set_vmax(iz_network* network, int neuron_index, float vmax) {return network->set_vmax(neuron_index, vmax);}
+    DLLEXPORTIZ int iz_network_set_vmin(iz_network* network, int neuron_index, float vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTIZ float iz_network_potential(iz_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTIZ float iz_network_adaptive_term(iz_network* network, int neuron_index) {return network->adaptive_term(neuron_index);}
     DLLEXPORTIZ int iz_network_spike_count(iz_network* network, int neuron_index) {return network->spike_count(neuron_index);}

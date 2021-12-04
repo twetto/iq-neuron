@@ -19,6 +19,7 @@ public:
     void set(int rest, int threshold,       // Set equation & noise strength
              int reset, int a, int b, int noise);
     void set_vmax(int vmax);
+    void set_vmin(int vmin);
     void iq(int external_current);          // Solve ODE
     int potential();
     bool is_firing();
@@ -32,6 +33,7 @@ private:
     int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
     int x , f_min, _spike_count = 0;
     int VMAX = 255;
+    int VMIN = 0;
     bool _is_set = false, _is_firing = false;
 };
 

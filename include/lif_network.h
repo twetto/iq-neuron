@@ -22,6 +22,8 @@ public:
     int set_neuron(int neuron_index, float g, float rest,
                    float threshold, float reset, int noise);
     int set_weight(int pre, int post, float weight, int tau);
+    int set_vmax(int neuron_index, float vmax);
+    int set_vmin(int neuron_index, float vmin);
     float potential(int neuron_index);
     int spike_count(int neuron_index);
     float spike_rate(int neuron_index);
@@ -58,6 +60,8 @@ public:
     int set_neuron(int neuron_index, int inv_g, int rest,
                    int threshold, int reset, int noise);
     int set_weight(int pre, int post, int weight, int tau);
+    int set_vmax(int neuron_index, int vmax);
+    int set_vmin(int neuron_index, int vmin);
     int potential(int neuron_index);
     int spike_count(int neuron_index);
     float spike_rate(int neuron_index);
