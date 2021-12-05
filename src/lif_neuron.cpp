@@ -68,7 +68,10 @@ void lif_neuron::lif_rk4(float external_current)
 void lif_neuron::lif_euler(float external_current)
 {
     if(_r_count == 0) {
-        _v += _g * (_v - _rest) + external_current + rand()%_noise-_noise/2;
+        if(_noise == 0)
+            _v += _g * (_v - _rest) + external_current;
+        else
+            _v += _g * (_v - _rest) + external_current + rand()%_noise-_noise/2;
     }
     else {
         _r_count--;
@@ -117,7 +120,10 @@ void lif_neuron::funca(float &fa, float &I, const float dtt,
 {
     float tmpv;
     tmpv = _v + dtt * arg;
-    fa = _g * (tmpv - _rest) + I + rand()%_noise-_noise/2;
+    if(_noise == 0)
+        fa = _g * (tmpv - _rest) + I;
+    else
+        fa = _g * (tmpv - _rest) + I + rand()%_noise-_noise/2;
     return;
 
 }
@@ -158,7 +164,10 @@ void ilif_neuron::set_vmin(int vmin)
 void ilif_neuron::ilif(int external_current)
 {
     if(_r_count == 0) {
-        _v += ((_rest - _v) >> _inv_g) + external_current + rand()%_noise-_noise/2;
+        if(_noise == 0)
+            _v += ((_rest - _v) >> _inv_g) + external_current;
+        else
+            _v += ((_rest - _v) >> _inv_g) + external_current + rand()%_noise-_noise/2;
     }
     else {
         _r_count--;

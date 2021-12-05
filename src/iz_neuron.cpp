@@ -78,7 +78,10 @@ void iz_neuron::iz_rk4(float external_current)
 
 void iz_neuron::iz_euler(float external_current)
 {
-    _v += _k * (_v - _rest) * (_v - _threshold) - _u + external_current + rand()%_noise-_noise/2;
+    if(_noise == 0)
+        _v += _k * (_v - _rest) * (_v - _threshold) - _u + external_current;
+    else
+        _v += _k * (_v - _rest) * (_v - _threshold) - _u + external_current + rand()%_noise-_noise/2;
     _u += _a * ( _b * (_v - _rest) - _u);
     
     _is_firing = false;
@@ -130,7 +133,10 @@ void iz_neuron::funca(float &fa, float &I, const float dtt,
     float tmpv, tmpu;
     tmpv = _v + dtt * arg1;
     tmpu = _u + dtt * arg2;
-    fa = _k * (tmpv - _rest) * (tmpv - _threshold) - tmpu + I + rand()%_noise-_noise/2;
+    if(_noise == 0)
+        fa = _k * (tmpv - _rest) * (tmpv - _threshold) - tmpu + I;
+    else
+        fa = _k * (tmpv - _rest) * (tmpv - _threshold) - tmpu + I + rand()%_noise-_noise/2;
     return;
 
 }
