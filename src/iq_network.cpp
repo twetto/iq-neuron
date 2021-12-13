@@ -108,18 +108,43 @@ int iq_network::get_weight(const char *con)
         *(_weight + _num_neurons*i + j) = weight;
         *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
-        if(tau >= 10) {
-            *(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
+        //if(tau >= 10) {
+        if(tau > _s_tau) {
+            //*(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
+            *(_f + _num_neurons*i + j) = (int) (log10(1-1/_s_tau) / log10((tau-1)/(float) tau));
             //printf("synapse[%d][%d]: decays every %d steps\n", i, j, *(_f + _num_neurons*i + j));
         }
         else {
             printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
-            printf("error: synapse time constant cannot be less than 10!\n");
+            //printf("error: synapse time constant cannot be less than 10!\n");
+            printf("error: synapse time constant cannot be less than %d!\n", _s_tau);
             return 1;
         }
     }
     fclose(fp);
     return 0;
+}
+
+int iq_network::set_surrogate_tau(int s_tau)
+{
+    int tau;
+
+    for(int i = 0; i < _num_neurons; i++) {
+        weight_index_node *j = (_wlist + i)->_first;
+        while(j != NULL) {
+            int tau = *(_tau + _num_neurons*i + j->_data);
+            if(_s_tau < tau) {
+                *(_f + _num_neurons*i + j->_data) = (int) (log10((_s_tau-1)/(float) _s_tau) / log10((tau-1)/(float) tau));
+            }
+            else {
+                printf("tau[%d][%d] = %d\n", i, j->_data, tau);
+                printf("error: synapse time constant cannot be <= %d!\n", _s_tau);
+                return 0;
+            }
+            j = j->_next;
+        }
+    }
+    return 1;
 }
 
 int iq_network::num_neurons()
@@ -347,6 +372,7 @@ extern "C"
     DLLEXPORTIQ int iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
     DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
     DLLEXPORTIQ int iq_network_set_weight(iq_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
+    DLLEXPORTIQ int iq_network_set_surrogate_tau(iq_network* network, int s_tau) {return network->set_surrogate_tau(s_tau);}
     DLLEXPORTIQ int iq_network_set_vmax(iq_network* network, int neuron_index, int vmax) {return network->set_vmax(neuron_index, vmax);}
     DLLEXPORTIQ int iq_network_set_vmin(iq_network* network, int neuron_index, int vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}

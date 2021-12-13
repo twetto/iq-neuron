@@ -22,6 +22,7 @@ public:
     int set_biascurrent(int neuron_index, int biascurrent);
     int set_neuron(int neuron_index, int rest, int threshold, int reset, int a, int b, int noise);
     int set_weight(int pre, int post, int weight, int tau);
+    int set_surrogate_tau(int s_tau);       // default s_tau is 8
     int set_vmax(int neuron_index, int vmax);
     int set_vmin(int neuron_index, int vmin);
     int potential(int neuron_index);
@@ -40,6 +41,7 @@ private:
     int set_neurons(const char *par);   // read from file par
     int get_weight(const char *con);    // read from file con
     int _num_neurons;
+    int _s_tau = 8;                 // network-wide surrogate time constant
     int *_tau, *_f, *_n;            // synapse decay time constant & siblings
     int *_weight;                   // synapse weight matrix
     int *_scurrent;                 // synapse current matrix
