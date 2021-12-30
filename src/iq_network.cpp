@@ -111,7 +111,7 @@ int iq_network::get_weight(const char *con)
         //if(tau >= 10) {
         if(tau > _s_tau) {
             //*(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
-            *(_f + _num_neurons*i + j) = (int) (log10(1-1/_s_tau) / log10((tau-1)/(float) tau));
+            *(_f + _num_neurons*i + j) = (int) (log10((_s_tau-1)/(float) _s_tau) / log10((tau-1)/(float) tau));
             //printf("synapse[%d][%d]: decays every %d steps\n", i, j, *(_f + _num_neurons*i + j));
         }
         else {
