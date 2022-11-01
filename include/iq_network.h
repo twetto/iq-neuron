@@ -7,6 +7,7 @@
 #include "iq_neuron.h"
 #include "weight_index_list.h"
 #include <math.h>
+#include <algorithm>
 #include <omp.h>
 
 class iq_network
