@@ -182,7 +182,7 @@ void iq_network::send_synapse()
                         /* synapse decay */
                         if(*(ptn + j->_data) > *(ptf + j->_data)) {
                             *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+                            *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
                         }
                         (*(ptn + j->_data))++;
 
@@ -195,7 +195,7 @@ void iq_network::send_synapse()
                         ncurrent_private[j->_data] += *(pts + j->_data);
                         if(*(ptn + j->_data) > *(ptf + j->_data)) {
                             *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+                            *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
                             /*
                             if(*(pts + j->_data) < 8 && *(pts + j->_data) > 0)
                                 *(pts + j->_data) -= 1;
@@ -231,7 +231,7 @@ void iq_network::send_synapse()
                     *(_ncurrent + j->_data) += *(pts + j->_data);
                     if(*(ptn + j->_data) > *(ptf + j->_data)) {
                         *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+                        *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
                         /*
                         if(*(pts + j->_data) < 8 && *(pts + j->_data) > 0)
                             *(pts + j->_data) -= 1;
@@ -248,7 +248,7 @@ void iq_network::send_synapse()
                     *(_ncurrent + j->_data) += *(pts + j->_data);
                     if(*(ptn + j->_data) > *(ptf + j->_data)) {
                         *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+                        *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
                         /*
                         if(*(pts + j->_data) < 8 && *(pts + j->_data) > 0)
                             *(pts + j->_data) -= 1;
