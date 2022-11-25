@@ -189,8 +189,10 @@ void iq_network::send_synapse()
                         (*(ptn + j->_data))++;
                         */
                         int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                        if(decay < 1)
-                            *(pts + j->_data) = max(0, *(pts + j->_data) - 1);
+                        if(decay == 0 && *(pts + j->_data) > 0)
+                            *(pts + j->_data) = *(pts + j->_data) - 1;
+                        else if(decay == 0 && *(pts + j->_data) < 0)
+                            *(pts + j->_data) = *(pts + j->_data) + 1;
                         else
                             *(pts + j->_data) = *(pts + j->_data) - decay;
 
@@ -209,8 +211,10 @@ void iq_network::send_synapse()
                         (*(ptn + j->_data))++;
                         */
                         int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                        if(decay < 1)
-                            *(pts + j->_data) = max(0, *(pts + j->_data) - 1);
+                        if(decay == 0 && *(pts + j->_data) > 0)
+                            *(pts + j->_data) = *(pts + j->_data) - 1;
+                        else if(decay == 0 && *(pts + j->_data) < 0)
+                            *(pts + j->_data) = *(pts + j->_data) + 1;
                         else
                             *(pts + j->_data) = *(pts + j->_data) - decay;
                         j = j->_next;
@@ -248,8 +252,10 @@ void iq_network::send_synapse()
                     (*(ptn + j->_data))++;
                     */
                     int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                    if(decay < 1)
-                        *(pts + j->_data) = max(0, *(pts + j->_data) - 1);
+                    if(decay == 0 && *(pts + j->_data) > 0)
+                        *(pts + j->_data) = *(pts + j->_data) - 1;
+                    else if(decay == 0 && *(pts + j->_data) < 0)
+                        *(pts + j->_data) = *(pts + j->_data) + 1;
                     else
                         *(pts + j->_data) = *(pts + j->_data) - decay;
                     j = j->_next;
@@ -267,8 +273,10 @@ void iq_network::send_synapse()
                     (*(ptn + j->_data))++;
                     */
                     int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                    if(decay < 1)
-                        *(pts + j->_data) = max(0, *(pts + j->_data) - 1);
+                    if(decay == 0 && *(pts + j->_data) > 0)
+                        *(pts + j->_data) = *(pts + j->_data) - 1;
+                    else if(decay == 0 && *(pts + j->_data) < 0)
+                        *(pts + j->_data) = *(pts + j->_data) + 1;
                     else
                         *(pts + j->_data) = *(pts + j->_data) - decay;
                     j = j->_next;
