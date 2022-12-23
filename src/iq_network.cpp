@@ -299,15 +299,24 @@ void iq_network::send_synapse()
     for(int i = 0; i < _num_neurons; i++) {
         
         int *ptau = _tau + _num_neurons*i;
-        weight_index_node *j = (_wlist + i)->_first;
-        int decay = *(_ncurrent + i) >> (int) log2(*(ptau + j->_data));
+        int valid_tau_i = 0;                    // valid post synaptic tau
+        for(int ii = 0; ii < _num_neurons; ii++) {
+            weight_index_node *j = (_wlist + ii)->_first;
+            while(j != NULL) {
+                if(j->_data == i) valid_tau_i = *(_tau + _num_neurons*ii + j->_data);
+                j = j->_next;
+            }
+        }
+        int decay;
+        if(valid_tau_i != 0)
+            decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
         
-        if(decay == 0 && *(_ncurrent + i) > 0)
-            *(_ncurrent + i) -= 1;
-        else if(decay == 0 && *(_ncurrent + i) < 0)
-            *(_ncurrent + i) += 1;
-        else
-            *(_ncurrent + i) -= decay;
+        if(valid_tau_i != 0 && decay == 0 && *(_ncurrent + i) > 0)
+            *(_ncurrent + i) = *(_ncurrent + i) - 1;
+        else if(valid_tau_i != 0 && decay == 0 && *(_ncurrent + i) < 0)
+            *(_ncurrent + i) = *(_ncurrent + i) + 1;
+        else if(valid_tau_i != 0)
+            *(_ncurrent + i) = *(_ncurrent + i) - decay;
         
         (_neurons + i)->iq(*(_ncurrent + i) + *(_biascurrent + i));
         //*(_ncurrent + i) = 0;
