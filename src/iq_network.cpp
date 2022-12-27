@@ -175,53 +175,8 @@ void iq_network::send_synapse()
                     while(j != NULL) {
 
                         /* accumulate weight if fired */
-                        //*(pts + j->_data) += *(ptw + j->_data);
-
-                        /* add current to neuron input */
-                        //ncurrent_private[j->_data] += *(pts + j->_data);
                         ncurrent_private[j->_data] += *(ptw + j->_data);
 
-                        /* synapse decay */
-                        /*
-                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                            *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
-                        }
-                        (*(ptn + j->_data))++;
-                        */
-                        /*
-                        int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                        if(decay == 0 && *(pts + j->_data) > 0)
-                            *(pts + j->_data) = *(pts + j->_data) - 1;
-                        else if(decay == 0 && *(pts + j->_data) < 0)
-                            *(pts + j->_data) = *(pts + j->_data) + 1;
-                        else
-                            *(pts + j->_data) = *(pts + j->_data) - decay;
-                        */
-
-                        j = j->_next;
-                    }
-                }
-                else {
-                    weight_index_node *j = (_wlist + i)->_first;
-                    while(j != NULL) {
-                        //ncurrent_private[j->_data] += *(pts + j->_data);
-                        /*
-                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                            *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
-                        }
-                        (*(ptn + j->_data))++;
-                        */
-                        /*
-                        int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                        if(decay == 0 && *(pts + j->_data) > 0)
-                            *(pts + j->_data) = *(pts + j->_data) - 1;
-                        else if(decay == 0 && *(pts + j->_data) < 0)
-                            *(pts + j->_data) = *(pts + j->_data) + 1;
-                        else
-                            *(pts + j->_data) = *(pts + j->_data) - decay;
-                        */
                         j = j->_next;
                     }
                 }
@@ -247,48 +202,7 @@ void iq_network::send_synapse()
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
-                    //*(pts + j->_data) += *(ptw + j->_data);
-                    //*(_ncurrent + j->_data) += *(pts + j->_data);
                     *(_ncurrent + j->_data) += *(ptw + j->_data);
-                    /*
-                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                        *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
-                    }
-                    (*(ptn + j->_data))++;
-                    */
-                    /*
-                    int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                    if(decay == 0 && *(pts + j->_data) > 0)
-                        *(pts + j->_data) = *(pts + j->_data) - 1;
-                    else if(decay == 0 && *(pts + j->_data) < 0)
-                        *(pts + j->_data) = *(pts + j->_data) + 1;
-                    else
-                        *(pts + j->_data) = *(pts + j->_data) - decay;
-                    */
-                    j = j->_next;
-                }
-            }
-            else {
-                weight_index_node *j = (_wlist + i)->_first;
-                while(j != NULL) {
-                    //*(_ncurrent + j->_data) += *(pts + j->_data);
-                    /*
-                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                        *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * (_s_tau-1) / _s_tau;
-                    }
-                    (*(ptn + j->_data))++;
-                    */
-                    /*
-                    int decay = *(pts + j->_data) >> (int) log2(*(ptau + j->_data));
-                    if(decay == 0 && *(pts + j->_data) > 0)
-                        *(pts + j->_data) = *(pts + j->_data) - 1;
-                    else if(decay == 0 && *(pts + j->_data) < 0)
-                        *(pts + j->_data) = *(pts + j->_data) + 1;
-                    else
-                        *(pts + j->_data) = *(pts + j->_data) - decay;
-                    */
                     j = j->_next;
                 }
             }
@@ -311,15 +225,16 @@ void iq_network::send_synapse()
         if(valid_tau_i != 0)
             decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
         
-        if(valid_tau_i != 0 && decay == 0 && *(_ncurrent + i) > 0)
-            *(_ncurrent + i) = *(_ncurrent + i) - 1;
-        else if(valid_tau_i != 0 && decay == 0 && *(_ncurrent + i) < 0)
-            *(_ncurrent + i) = *(_ncurrent + i) + 1;
-        else if(valid_tau_i != 0)
+        if(valid_tau_i == 0)
+            *(_ncurrent + i) = 0;
+        else if(decay != 0)
             *(_ncurrent + i) = *(_ncurrent + i) - decay;
-        
+        else if(*(_ncurrent + i) > 0)
+            *(_ncurrent + i) = *(_ncurrent + i) - 1;
+        else if(*(_ncurrent + i) < 0)
+            *(_ncurrent + i) = *(_ncurrent + i) + 1;
+
         (_neurons + i)->iq(*(_ncurrent + i) + *(_biascurrent + i));
-        //*(_ncurrent + i) = 0;
     }
     return;
 }
