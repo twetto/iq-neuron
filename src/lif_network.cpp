@@ -408,28 +408,29 @@ void ilif_network::send_synapse()
                     int *ptw = _weight + _num_neurons*i;
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
-                        *(pts + j->_data) += *(ptw + j->_data);
-                        ncurrent_private[j->_data] += *(pts + j->_data);
-                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                            *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                        }
-                        (*(ptn + j->_data))++;
+                        //*(pts + j->_data) += *(ptw + j->_data);
+                        //ncurrent_private[j->_data] += *(pts + j->_data);
+                        ncurrent_private[j->_data] += *(ptw + j->_data);
+                        //if(*(ptn + j->_data) > *(ptf + j->_data)) {
+                        //    *(ptn + j->_data) = 0;
+                        //    *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+                        //}
+                        //(*(ptn + j->_data))++;
                         j = j->_next;
                     }
                 }
-                else {
-                    weight_index_node *j = (_wlist + i)->_first;
-                    while(j != NULL) {
-                        ncurrent_private[j->_data] += *(pts + j->_data);
-                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                            *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                        }
-                        (*(ptn + j->_data))++;
-                        j = j->_next;
-                    }
-                }
+                //else {
+                //    weight_index_node *j = (_wlist + i)->_first;
+                //    while(j != NULL) {
+                //        ncurrent_private[j->_data] += *(pts + j->_data);
+                //        if(*(ptn + j->_data) > *(ptf + j->_data)) {
+                //            *(ptn + j->_data) = 0;
+                //            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+                //        }
+                //        (*(ptn + j->_data))++;
+                //        j = j->_next;
+                //    }
+                //}
             }
             #pragma omp critical
             {
@@ -449,35 +450,56 @@ void ilif_network::send_synapse()
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
-                    *(pts + j->_data) += *(ptw + j->_data);
-                    *(_ncurrent + j->_data) += *(pts + j->_data);
-                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                        *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                    }
-                    (*(ptn + j->_data))++;
+                    //*(pts + j->_data) += *(ptw + j->_data);
+                    //*(_ncurrent + j->_data) += *(pts + j->_data);
+                    *(_ncurrent + j->_data) += *(ptw + j->_data);
+                    //if(*(ptn + j->_data) > *(ptf + j->_data)) {
+                    //    *(ptn + j->_data) = 0;
+                    //    *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+                    //}
+                    //(*(ptn + j->_data))++;
                     j = j->_next;
                 }
             }
-            else {
-                weight_index_node *j = (_wlist + i)->_first;
-                while(j != NULL) {
-                    *(_ncurrent + j->_data) += *(pts + j->_data);
-                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                        *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                    }
-                    (*(ptn + j->_data))++;
-                    j = j->_next;
-                }
-            }
+            //else {
+            //    weight_index_node *j = (_wlist + i)->_first;
+            //    while(j != NULL) {
+            //        *(_ncurrent + j->_data) += *(pts + j->_data);
+            //        if(*(ptn + j->_data) > *(ptf + j->_data)) {
+            //            *(ptn + j->_data) = 0;
+            //            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
+            //        }
+            //        (*(ptn + j->_data))++;
+            //        j = j->_next;
+            //    }
+            //}
         }
     }
 
     /* solving DE, reset post-syn current */
     for(int i = 0; i < _num_neurons; i++) {
+        int *ptau = _tau + _num_neurons*i;
+        int valid_tau_i = 0;                // valid post synaptic tau
+        for(int ii = 0; ii < _num_neurons; ii++) {
+            weight_index_node *j = (_wlist + ii)->_first;
+            while(j != NULL) {
+                if(j->_data == i) valid_tau_i = *(_tau + _num_neurons*ii + j->_data);
+                j = j->_next;
+            }
+        }
+        int decay;
+        if(valid_tau_i != 0)
+            decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
+            if(decay != 0)
+                *(_ncurrent + i) = *(_ncurrent + i) - decay;
+            else if(*(_ncurrent + i) > 0)
+                *(_ncurrent + i) = *(_ncurrent + i) - 1;
+            else if(*(_ncurrent + i) < 0)
+                *(_ncurrent + i) = *(_ncurrent + i) + 1;
+
         (_neurons + i)->ilif(*(_ncurrent + i) + *(_biascurrent + i));
-        *(_ncurrent + i) = 0;
+        if(valid_tau_i == 0)
+            *(_ncurrent + i) = 0;
     }
     return;
 }

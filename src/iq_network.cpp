@@ -213,7 +213,7 @@ void iq_network::send_synapse()
     for(int i = 0; i < _num_neurons; i++) {
         
         int *ptau = _tau + _num_neurons*i;
-        int valid_tau_i = 0;                    // valid post synaptic tau
+        int valid_tau_i = 0;                // valid post synaptic tau
         for(int ii = 0; ii < _num_neurons; ii++) {
             weight_index_node *j = (_wlist + ii)->_first;
             while(j != NULL) {
@@ -224,17 +224,16 @@ void iq_network::send_synapse()
         int decay;
         if(valid_tau_i != 0)
             decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
-        
-        if(valid_tau_i == 0)
-            *(_ncurrent + i) = 0;
-        else if(decay != 0)
-            *(_ncurrent + i) = *(_ncurrent + i) - decay;
-        else if(*(_ncurrent + i) > 0)
-            *(_ncurrent + i) = *(_ncurrent + i) - 1;
-        else if(*(_ncurrent + i) < 0)
-            *(_ncurrent + i) = *(_ncurrent + i) + 1;
+            if(decay != 0)
+                *(_ncurrent + i) = *(_ncurrent + i) - decay;
+            else if(*(_ncurrent + i) > 0)
+                *(_ncurrent + i) = *(_ncurrent + i) - 1;
+            else if(*(_ncurrent + i) < 0)
+                *(_ncurrent + i) = *(_ncurrent + i) + 1;
 
         (_neurons + i)->iq(*(_ncurrent + i) + *(_biascurrent + i));
+        if(valid_tau_i == 0)
+            *(_ncurrent + i) = 0;
     }
     return;
 }
