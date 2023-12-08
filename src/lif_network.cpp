@@ -373,15 +373,6 @@ int ilif_network::get_weight(const char *con)
         *(_weight + _num_neurons*i + j) = weight;
         *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
-        if(tau >= 10) {
-            *(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
-            //printf("synapse[%d][%d]: decays every %d steps\n", i, j, *(_f + _num_neurons*i + j));
-        }
-        else {
-            printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
-            printf("error: synapse time constant cannot be less than 10!\n");
-            return 1;
-        }
     }
     fclose(fp);
     return 0;
@@ -408,29 +399,10 @@ void ilif_network::send_synapse()
                     int *ptw = _weight + _num_neurons*i;
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
-                        //*(pts + j->_data) += *(ptw + j->_data);
-                        //ncurrent_private[j->_data] += *(pts + j->_data);
                         ncurrent_private[j->_data] += *(ptw + j->_data);
-                        //if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                        //    *(ptn + j->_data) = 0;
-                        //    *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                        //}
-                        //(*(ptn + j->_data))++;
                         j = j->_next;
                     }
                 }
-                //else {
-                //    weight_index_node *j = (_wlist + i)->_first;
-                //    while(j != NULL) {
-                //        ncurrent_private[j->_data] += *(pts + j->_data);
-                //        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                //            *(ptn + j->_data) = 0;
-                //            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                //        }
-                //        (*(ptn + j->_data))++;
-                //        j = j->_next;
-                //    }
-                //}
             }
             #pragma omp critical
             {
@@ -450,29 +422,10 @@ void ilif_network::send_synapse()
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
-                    //*(pts + j->_data) += *(ptw + j->_data);
-                    //*(_ncurrent + j->_data) += *(pts + j->_data);
                     *(_ncurrent + j->_data) += *(ptw + j->_data);
-                    //if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                    //    *(ptn + j->_data) = 0;
-                    //    *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                    //}
-                    //(*(ptn + j->_data))++;
                     j = j->_next;
                 }
             }
-            //else {
-            //    weight_index_node *j = (_wlist + i)->_first;
-            //    while(j != NULL) {
-            //        *(_ncurrent + j->_data) += *(pts + j->_data);
-            //        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-            //            *(ptn + j->_data) = 0;
-            //            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-            //        }
-            //        (*(ptn + j->_data))++;
-            //        j = j->_next;
-            //    }
-            //}
         }
     }
 
