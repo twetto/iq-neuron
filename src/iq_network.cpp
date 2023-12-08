@@ -108,18 +108,6 @@ int iq_network::get_weight(const char *con)
         *(_weight + _num_neurons*i + j) = weight;
         *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
-        //if(tau >= 10) {
-        if(tau > _s_tau) {
-            //*(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
-            *(_f + _num_neurons*i + j) = (int) (log10((_s_tau-1)/(float) _s_tau) / log10((tau-1)/(float) tau));
-            //printf("synapse[%d][%d]: decays every %d steps\n", i, j, *(_f + _num_neurons*i + j));
-        }
-        else {
-            printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
-            //printf("error: synapse time constant cannot be less than 10!\n");
-            printf("error: synapse time constant cannot be less than %d!\n", _s_tau);
-            return 1;
-        }
     }
     fclose(fp);
     return 0;
@@ -222,7 +210,7 @@ void iq_network::send_synapse()
             }
         }
         int decay;
-        if(valid_tau_i != 0)
+        if(valid_tau_i != 0) {
             decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
             if(decay != 0)
                 *(_ncurrent + i) = *(_ncurrent + i) - decay;
@@ -230,6 +218,7 @@ void iq_network::send_synapse()
                 *(_ncurrent + i) = *(_ncurrent + i) - 1;
             else if(*(_ncurrent + i) < 0)
                 *(_ncurrent + i) = *(_ncurrent + i) + 1;
+        }
 
         (_neurons + i)->iq(*(_ncurrent + i) + *(_biascurrent + i));
         if(valid_tau_i == 0)
