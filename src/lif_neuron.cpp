@@ -158,7 +158,7 @@ void ilif_neuron::set_vmin(int vmin)
 void ilif_neuron::ilif(int external_current)
 {
     if(_r_count == 0) {
-        _v += ((_rest - _v) >> _inv_g) + external_current + rand()%_noise-_noise/2;
+        _v += -_inv_g + external_current + rand()%_noise-_noise/2;
     }
     else {
         _r_count--;

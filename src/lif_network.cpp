@@ -441,7 +441,7 @@ void ilif_network::send_synapse()
             }
         }
         int decay;
-        if(valid_tau_i != 0)
+        if(valid_tau_i != 0) {
             decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
             if(decay != 0)
                 *(_ncurrent + i) = *(_ncurrent + i) - decay;
@@ -449,7 +449,8 @@ void ilif_network::send_synapse()
                 *(_ncurrent + i) = *(_ncurrent + i) - 1;
             else if(*(_ncurrent + i) < 0)
                 *(_ncurrent + i) = *(_ncurrent + i) + 1;
-
+        }
+        
         (_neurons + i)->ilif(*(_ncurrent + i) + *(_biascurrent + i));
         if(valid_tau_i == 0)
             *(_ncurrent + i) = 0;
