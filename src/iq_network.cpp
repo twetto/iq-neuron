@@ -319,6 +319,7 @@ void iq_network::set_num_threads(int num_threads)
 extern "C"
 {
     DLLEXPORTIQ iq_network* iq_network_new(const char *par, const char *con) {return new iq_network(par, con);}
+    DLLEXPORTIQ void iq_network_delete(iq_network* network) {delete network;}
     DLLEXPORTIQ int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
     DLLEXPORTIQ void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
     DLLEXPORTIQ int iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
