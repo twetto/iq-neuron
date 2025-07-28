@@ -72,12 +72,12 @@ void iq_neuron::iq(int external_current)
 
     /* fire if exceeding action potential */
     _is_firing = false;
-    if(x > VMAX) {
+    if(x >= VMAX) {
         _spike_count++;
         _is_firing = true;
-        x = _reset;
+        x = x - (VMAX - _reset);
     }
-    else if(x < VMIN) x = VMIN;
+    if(x < VMIN) x = VMIN;
     t_neuron++;
     return;
 }
