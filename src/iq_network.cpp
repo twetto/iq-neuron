@@ -304,6 +304,13 @@ int iq_network::spike_count(int neuron_index)
     return (_neurons + neuron_index)->spike_count();
 }
 
+void iq_network::get_all_spike_counts(int* output_array)
+{
+    for(int i = 0; i < _num_neurons; i++) {
+        output_array[i] = (_neurons + i)->spike_count();
+    }
+}
+
 float iq_network::spike_rate(int neuron_index)
 {
     return (_neurons + neuron_index)->spike_rate();
@@ -330,6 +337,7 @@ extern "C"
     DLLEXPORTIQ int iq_network_set_vmin(iq_network* network, int neuron_index, int vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
     DLLEXPORTIQ int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
+    DLLEXPORTIQ void iq_network_get_all_spike_counts(iq_network* network, int* output_array) {return network->get_all_spike_counts(output_array);}
     DLLEXPORTIQ float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
     DLLEXPORTIQ void iq_network_set_num_threads(iq_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }

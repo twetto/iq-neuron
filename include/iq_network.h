@@ -28,6 +28,7 @@ public:
     int set_vmin(int neuron_index, int vmin);
     int potential(int neuron_index);
     int spike_count(int neuron_index);
+    void get_all_spike_counts(int* output_array);
     float spike_rate(int neuron_index);
     void set_num_threads(int num_threads);  // for multithreading
 
