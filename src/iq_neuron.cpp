@@ -9,6 +9,18 @@ using namespace std;
 iq_neuron::iq_neuron(int rest, int threshold,
                      int reset, int a, int b, int noise)
 {
+    set(rest, threshold, reset, a, b, noise);
+    return;
+}
+
+bool iq_neuron::is_set()
+{
+    return _is_set;
+}
+
+void iq_neuron::set(int rest, int threshold,
+                    int reset, int a, int b, int noise)
+{
     x = rest;                               // initialize with rest potential
     t_neuron = 0;
     f_min = (a*rest + b*threshold) / (a+b); // dV/dt and others
@@ -21,29 +33,8 @@ iq_neuron::iq_neuron(int rest, int threshold,
     else if(noise < 0) noise = -noise;
     _noise = noise;
     _is_set = true;
-    return;
-}
-
-bool iq_neuron::is_set()
-{
-    return _is_set;
-}
-
-void iq_neuron::set(int rest, int threshold,
-                    int reset, int a, int b, int noise)
-{
-    x = rest;
-    t_neuron = 0;
-    f_min = (a*rest + b*threshold) / (a+b);
-    _a = a;
-    _b = b;
-    _rest = rest;
-    _threshold = threshold;
-    _reset = reset;
-    if(noise == 0) noise++;
-    else if(noise < 0) noise = -noise;
-    _noise = noise;
-    _is_set = true;
+    _synapse.init(32, 8);                   // Default safety.
+                                            // Will be set again in network init
     return;
 }
 
@@ -59,27 +50,56 @@ void iq_neuron::set_vmin(int vmin)
     return;
 }
 
-void iq_neuron::iq(int external_current)
+void iq_neuron::update_state(int external_current)
 {
-    int f;
+    // Capture the Input Current (undecayed sum of spikes from t-1)
+    int current_val = _synapse.current_accumulator;
 
-    /* solving dV/dt */
+    // Decay the accumulator (Preparing it for t+1)
+    _synapse.step();
+    
+    // Solve ODE
+    int f;
+    int total_input = current_val + external_current;
+
     if(x < f_min)
         f = _a * (_rest - x);
     else
         f = _b * (x - _threshold);
-    x += (f >> 3) + external_current + rand()%_noise - (_noise >> 1);
+    
+    x += (f >> 3) + total_input + rand()%_noise - (_noise >> 1);
 
-    /* fire if exceeding action potential */
     _is_firing = false;
-    if(x > VMAX) {
+    if(x >= VMAX) {
         _spike_count++;
         _is_firing = true;
-        x = _reset;
+        x = x - (VMAX - _reset);
     }
-    else if(x < VMIN) x = VMIN;
+    if(x < VMIN) x = VMIN;
     t_neuron++;
-    return;
+}
+
+void iq_neuron::receive_spike(int weight)
+{
+    _synapse.add_input(weight);
+}
+
+void iq_neuron::set_synapse_tau(int apparent_tau, int s_tau)
+{
+    _synapse.init(apparent_tau, s_tau);
+}
+
+void iq_neuron::set_surrogate_tau(int s_tau) {
+    _synapse.set_surrogate_tau(s_tau);
+}
+
+int iq_neuron::get_surrogate_tau(){
+    return _synapse.surrogate_tau;
+}
+
+int iq_neuron::get_decay_threshold()
+{
+    return _synapse.timer_threshold;
 }
 
 int iq_neuron::potential()
@@ -101,7 +121,7 @@ int iq_neuron::spike_count()
 
 float iq_neuron::spike_rate()
 {
-    float r = _spike_count / (float) t_neuron;
+    float r = _spike_count / (float) (t_neuron ? t_neuron : 1);
     t_neuron = 0;
     _spike_count = 0;
     return r;

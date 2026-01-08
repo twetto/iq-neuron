@@ -16,13 +16,8 @@ iq_network::iq_network(const char *par, const char *con)
 {
     _num_neurons = linenum_neuronParameter(par);
     _neurons = new iq_neuron[_num_neurons];
-    _tau = new int[_num_neurons * _num_neurons]();
-    _f = new int[_num_neurons * _num_neurons]();
-    _n = new int[_num_neurons * _num_neurons]();
     _weight = new int[_num_neurons * _num_neurons]();
     _wlist = new weight_index_list[_num_neurons];
-    _scurrent = new int[_num_neurons * _num_neurons]();
-    _ncurrent = new int[_num_neurons]();
     _biascurrent = new int[_num_neurons]();
 
     get_weight(con);
@@ -33,13 +28,8 @@ iq_network::iq_network(const char *par, const char *con)
 iq_network::~iq_network()
 {
     delete[] _neurons;
-    delete[] _tau;
-    delete[] _f;
-    delete[] _n;
     delete[] _weight;
     delete[] _wlist;
-    delete[] _scurrent;
-    delete[] _ncurrent;
     delete[] _biascurrent;
     return;
 }
@@ -76,7 +66,8 @@ int iq_network::set_neurons(const char *par)
     fp = fopen(par, "r");
     while(fscanf(fp, " %d %d %d %d %d %d %d", &i, &rest, &threshold,
             &reset, &a, &b, &noise) == 7) {
-        (_neurons + i)->set(rest, threshold, reset, a, b, noise);
+        if(i < _num_neurons)
+            (_neurons + i)->set(rest, threshold, reset, a, b, noise);
     }
     fclose(fp);
     return 0;
@@ -88,14 +79,9 @@ int iq_network::get_weight(const char *con)
     FILE *fp;
     for(i = 0; i < _num_neurons; i++) {
         for(j = 0; j < _num_neurons; j++) {
-            *(_scurrent + _num_neurons*i + j) = 0;
             *(_weight + _num_neurons*i + j) = 0;
-            *(_tau + _num_neurons*i + j) = 0;
-            *(_f + _num_neurons*i + j) = 0;
-            *(_n + _num_neurons*i + j) = 0;
         }
         *(_biascurrent + i) = 0;
-        *(_ncurrent + i) = 0;
     }
 
     fp = fopen(con, "r");
@@ -106,8 +92,11 @@ int iq_network::get_weight(const char *con)
 
     while(fscanf(fp, "%d %d %d %d", &i, &j, &weight, &tau) == 4) {
         *(_weight + _num_neurons*i + j) = weight;
-        *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
+        // Initialize the Neuron's SynapseGroup logic
+        // Note: This overwrites if multiple connections have different taus
+        // (Only the last tau applys)
+        (_neurons + j)->set_synapse_tau(tau, _s_tau);
     }
     fclose(fp);
     return 0;
@@ -115,24 +104,26 @@ int iq_network::get_weight(const char *con)
 
 int iq_network::set_surrogate_tau(int s_tau)
 {
-    int tau;
-
+    _s_tau = s_tau; 
     for(int i = 0; i < _num_neurons; i++) {
-        weight_index_node *j = (_wlist + i)->_first;
-        while(j != NULL) {
-            int tau = *(_tau + _num_neurons*i + j->_data);
-            if(_s_tau < tau) {
-                *(_f + _num_neurons*i + j->_data) = (int) (log10((_s_tau-1)/(float) _s_tau) / log10((tau-1)/(float) tau));
-            }
-            else {
-                printf("tau[%d][%d] = %d\n", i, j->_data, tau);
-                printf("error: synapse time constant cannot be <= %d!\n", _s_tau);
-                return 0;
-            }
-            j = j->_next;
-        }
+        (_neurons + i)->set_surrogate_tau(s_tau);
     }
     return 1;
+}
+
+// Per-neuron overload
+int iq_network::set_surrogate_tau(int neuron_index, int s_tau)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->set_surrogate_tau(s_tau);
+        return 1;
+    }
+    else return 0;
+}
+
+int iq_network::get_surrogate_tau(int neuron_index)
+{
+    return (_neurons + neuron_index)->get_surrogate_tau();
 }
 
 int iq_network::num_neurons()
@@ -142,89 +133,30 @@ int iq_network::num_neurons()
 
 void iq_network::send_synapse()
 {
-    /* accumulating/decaying synapse current */
-    if(_num_threads > 1) {
-    // parallel mode
-        #pragma omp parallel
-        {
-            int *ncurrent_private = new int[_num_neurons]();
-            #pragma omp for
-            for(int i = 0; i < _num_neurons; i++) {
-                int *pts = _scurrent + _num_neurons*i;
-                int *ptn = _n + _num_neurons*i;
-                int *ptf = _f + _num_neurons*i;
-                int *ptau = _tau + _num_neurons*i;
-                if((_neurons + i)->_is_firing) {
-                    //printf("neuron %d has fired\n", i);
-                    int *ptw = _weight + _num_neurons*i;
-
-                    /* parse through axon index */
-                    weight_index_node *j = (_wlist + i)->_first;
-                    while(j != NULL) {
-
-                        /* accumulate weight if fired */
-                        ncurrent_private[j->_data] += *(ptw + j->_data);
-
-                        j = j->_next;
-                    }
-                }
-            }
-            #pragma omp critical
-            {
-                for(int i = 0; i < _num_neurons; i++) {
-                    *(_ncurrent + i) += ncurrent_private[i];
-                }
-            }
-            delete[] ncurrent_private;
-        }
-    }
-    else {
-    // single thread mode
-        for(int i = 0; i < _num_neurons; i++) {
-            int *pts = _scurrent + _num_neurons*i;
-            int *ptn = _n + _num_neurons*i;
-            int *ptf = _f + _num_neurons*i;
-            int *ptau = _tau + _num_neurons*i;
-            if((_neurons + i)->_is_firing) {
-                //printf("neuron %d has fired\n", i);
-                int *ptw = _weight + _num_neurons*i;
-                weight_index_node *j = (_wlist + i)->_first;
-                while(j != NULL) {
-                    *(_ncurrent + j->_data) += *(ptw + j->_data);
-                    j = j->_next;
-                }
-            }
-        }
-    }
-
-    /* solving DE, reset post-syn current */
+    // Propagate Spikes (using is_firing from t-1)
+    #pragma omp parallel for
     for(int i = 0; i < _num_neurons; i++) {
-        
-        int *ptau = _tau + _num_neurons*i;
-        int valid_tau_i = 0;                // valid post synaptic tau
-        for(int ii = 0; ii < _num_neurons; ii++) {
-            weight_index_node *j = (_wlist + ii)->_first;
+        if((_neurons + i)->is_firing()) {
+            
+            int *ptw = _weight + _num_neurons*i;
+            weight_index_node *j = (_wlist + i)->_first;
+            
             while(j != NULL) {
-                if(j->_data == i) valid_tau_i = *(_tau + _num_neurons*ii + j->_data);
+                int weight = *(ptw + j->_data);
+                
+                // Atomic add
+                (_neurons + j->_data)->receive_spike(weight);
+
                 j = j->_next;
             }
         }
-        int decay;
-        if(valid_tau_i != 0) {
-            decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
-            if(decay != 0)
-                *(_ncurrent + i) = *(_ncurrent + i) - decay;
-            else if(*(_ncurrent + i) > 0)
-                *(_ncurrent + i) = *(_ncurrent + i) - 1;
-            else if(*(_ncurrent + i) < 0)
-                *(_ncurrent + i) = *(_ncurrent + i) + 1;
-        }
-
-        (_neurons + i)->iq(*(_ncurrent + i) + *(_biascurrent + i));
-        if(valid_tau_i == 0)
-            *(_ncurrent + i) = 0;
     }
-    return;
+
+    // Update Neurons (Decay + Solve + Set Fire for t)
+    #pragma omp parallel for
+    for(int i = 0; i < _num_neurons; i++) {
+        (_neurons + i)->update_state(*(_biascurrent + i));
+    }
 }
 
 void iq_network::printfile(FILE **fp)
@@ -235,6 +167,20 @@ void iq_network::printfile(FILE **fp)
         fprintf(fp[i], "%d\n", (_neurons+i)->potential());
     }
     return;
+}
+
+int iq_network::get_current_accumulator(int neuron_index) {
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        return (_neurons + neuron_index)->_synapse.current_accumulator;
+    }
+    return 0;
+}
+
+int iq_network::get_decay_threshold(int neuron_index) {
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        return (_neurons + neuron_index)->get_decay_threshold();
+    }
+    return 0;
 }
 
 int iq_network::set_biascurrent(int neuron_index, int biascurrent)
@@ -260,20 +206,13 @@ int iq_network::set_neuron(int neuron_index, int rest, int threshold,
     else return 0;
 }
 
-int iq_network::set_weight(int pre, int post, int weight, int tau)
-{
-    if(pre >= 0 && pre < _num_neurons && post >= 0 && post < _num_neurons && tau >= 10) {
+int iq_network::set_weight(int pre, int post, int weight, int tau) {
+    if(pre >= 0 && pre < _num_neurons && post >= 0 && post < _num_neurons) {
         *(_weight + _num_neurons*pre + post) = weight;
-        *(_tau + _num_neurons*pre + post) = tau;
-        *(_f + _num_neurons*pre + post) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
+        (_neurons + post)->_synapse.set_apparent_tau(tau);
         return 1;
     }
-    else {
-        printf("Pre/post index out of range or tau not greater than 10.\n");
-        printf("Please select index within 0 ~ %d.\n", _num_neurons-1);
-        printf("Bad tau[%d][%d] = %d\n", pre, post, *(_tau + _num_neurons*pre + post));
-        return 0;
-    }
+    return 0; 
 }
 
 int iq_network::set_vmax(int neuron_index, int vmax)
@@ -333,6 +272,10 @@ extern "C"
     DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
     DLLEXPORTIQ int iq_network_set_weight(iq_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIQ int iq_network_set_surrogate_tau(iq_network* network, int s_tau) {return network->set_surrogate_tau(s_tau);}
+    DLLEXPORTIQ int iq_network_set_neuron_surrogate_tau(iq_network* network, int neuron_index, int s_tau) { return network->set_surrogate_tau(neuron_index, s_tau); }
+    DLLEXPORTIQ int iq_network_get_neuron_surrogate_tau(iq_network* network, int neuron_index) { return network->get_surrogate_tau(neuron_index); }
+    DLLEXPORTIQ int iq_network_get_current_accumulator(iq_network* network, int neuron_index) { return network->get_current_accumulator(neuron_index); }
+    DLLEXPORTIQ int iq_network_get_decay_threshold(iq_network* network, int neuron_index) { return network->get_decay_threshold(neuron_index); }
     DLLEXPORTIQ int iq_network_set_vmax(iq_network* network, int neuron_index, int vmax) {return network->set_vmax(neuron_index, vmax);}
     DLLEXPORTIQ int iq_network_set_vmin(iq_network* network, int neuron_index, int vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
