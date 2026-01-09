@@ -9,16 +9,34 @@
 #endif
 
 #include "iq_network.h"
+#include <stdlib.h>
 
 using namespace std;
+
+// Helper for sorting connections during loading
+struct Conn
+{ 
+    int pre; 
+    int post; 
+    int weight; 
+    int tau; 
+};
+
+int compare_conn(const void* a, const void* b)
+{
+    return ((Conn*)a)->pre - ((Conn*)b)->pre;
+}
 
 iq_network::iq_network(const char *par, const char *con)
 {
     _num_neurons = linenum_neuronParameter(par);
     _neurons = new iq_neuron[_num_neurons];
-    _weight = new int[_num_neurons * _num_neurons]();
-    _wlist = new weight_index_list[_num_neurons];
     _biascurrent = new int[_num_neurons]();
+
+    _csr_offsets = NULL;
+    _csr_targets = NULL;
+    _csr_weights = NULL;
+    _num_synapses = 0;
 
     get_weight(con);
     set_neurons(par);
@@ -28,9 +46,10 @@ iq_network::iq_network(const char *par, const char *con)
 iq_network::~iq_network()
 {
     delete[] _neurons;
-    delete[] _weight;
-    delete[] _wlist;
     delete[] _biascurrent;
+    if(_csr_offsets) delete[] _csr_offsets;
+    if(_csr_targets) delete[] _csr_targets;
+    if(_csr_weights) delete[] _csr_weights;
     return;
 }
 
@@ -75,30 +94,72 @@ int iq_network::set_neurons(const char *par)
 
 int iq_network::get_weight(const char *con)
 {
-    int i, j, weight, tau;
-    FILE *fp;
-    for(i = 0; i < _num_neurons; i++) {
-        for(j = 0; j < _num_neurons; j++) {
-            *(_weight + _num_neurons*i + j) = 0;
-        }
-        *(_biascurrent + i) = 0;
-    }
-
-    fp = fopen(con, "r");
+    FILE *fp = fopen(con, "r");
     if(fp == NULL) {
         printf("IQIF connection table file not opened\n");
         return 1;
     }
 
+    // PASS 1: Count lines
+    int i, j, weight, tau;
+    int count = 0;
+    for(i = 0; i < _num_neurons; i++) {
+        *(_biascurrent + i) = 0;
+    }
     while(fscanf(fp, "%d %d %d %d", &i, &j, &weight, &tau) == 4) {
-        *(_weight + _num_neurons*i + j) = weight;
-        (_wlist + i)->push_front(j);
-        // Initialize the Neuron's SynapseGroup logic
-        // Note: This overwrites if multiple connections have different taus
-        // (Only the last tau applys)
-        (_neurons + j)->set_synapse_tau(tau, _s_tau);
+        count++;
+    }
+    _num_synapses = count;
+    rewind(fp);
+
+    // Temp storage for sorting
+    Conn* raw_list = new Conn[_num_synapses];
+    int idx = 0;
+    while(fscanf(fp, "%d %d %d %d", &i, &j, &weight, &tau) == 4) {
+        raw_list[idx].pre = i;
+        raw_list[idx].post = j;
+        raw_list[idx].weight = weight;
+        raw_list[idx].tau = tau;
+        idx++;
     }
     fclose(fp);
+
+    // Initialize Neurons (Tau settings)
+    // Note: This overwrites if multiple connections have different taus
+    // (Only the last tau applys)
+    for(int k=0; k<_num_synapses; k++) {
+        (_neurons + raw_list[k].post)->set_synapse_tau(raw_list[k].tau, _s_tau);
+    }
+
+    // Sort by pre-synaptic neuron
+    qsort(raw_list, _num_synapses, sizeof(Conn), compare_conn);
+
+    // PASS 2: Build CSR Arrays
+    _csr_offsets = new int[_num_neurons + 1]();
+    _csr_targets = new int[_num_synapses];
+    _csr_weights = new int[_num_synapses];
+
+    int current_pre = 0;
+    for(int k=0; k<_num_synapses; k++) {
+        Conn c = raw_list[k];
+        
+        // Fill offsets for any neurons we skipped
+        while(current_pre < c.pre) {
+            _csr_offsets[current_pre + 1] = k;
+            current_pre++;
+        }
+
+        _csr_targets[k] = c.post;
+        _csr_weights[k] = c.weight;
+    }
+    
+    // Fill remaining offsets
+    while(current_pre < _num_neurons) {
+        _csr_offsets[current_pre + 1] = _num_synapses;
+        current_pre++;
+    }
+
+    delete[] raw_list;
     return 0;
 }
 
@@ -138,16 +199,16 @@ void iq_network::send_synapse()
     for(int i = 0; i < _num_neurons; i++) {
         if((_neurons + i)->is_firing()) {
             
-            int *ptw = _weight + _num_neurons*i;
-            weight_index_node *j = (_wlist + i)->_first;
-            
-            while(j != NULL) {
-                int weight = *(ptw + j->_data);
-                
-                // Atomic add
-                (_neurons + j->_data)->receive_spike(weight);
+            int start = _csr_offsets[i];
+            int end = _csr_offsets[i+1];
 
-                j = j->_next;
+            // Linear loop over contiguous memory
+            for(int k = start; k < end; k++) {
+                int target_idx = _csr_targets[k];
+                int weight = _csr_weights[k];
+
+                // Atomicity handled inside receive_spike
+                (_neurons + target_idx)->receive_spike(weight);
             }
         }
     }
@@ -207,11 +268,7 @@ int iq_network::set_neuron(int neuron_index, int rest, int threshold,
 }
 
 int iq_network::set_weight(int pre, int post, int weight, int tau) {
-    if(pre >= 0 && pre < _num_neurons && post >= 0 && post < _num_neurons) {
-        *(_weight + _num_neurons*pre + post) = weight;
-        (_neurons + post)->_synapse.set_apparent_tau(tau);
-        return 1;
-    }
+    printf("Warning: set_weight is not available in CSR mode. Please modify the connection table directly.\n");
     return 0; 
 }
 

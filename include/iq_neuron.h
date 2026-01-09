@@ -10,7 +10,8 @@
 
 class iq_network;
 
-struct SynapseGroup {
+struct SynapseGroup
+{
     int current_accumulator;
     int timer;
     int timer_threshold; 

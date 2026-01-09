@@ -5,7 +5,6 @@
 #ifndef IQ_NETWORK_H
 #define IQ_NETWORK_H
 #include "iq_neuron.h"
-#include "weight_index_list.h"
 #include <math.h>
 #include <algorithm>
 #include <omp.h>
@@ -49,10 +48,12 @@ private:
     int get_weight(const char *con);    // read from file con
     int _num_neurons;
     int _s_tau = 8;                 // network-wide surrogate time constant
-    int *_weight;                   // synapse weight matrix
+    int *_csr_offsets;              // size: _num_neurons + 1
+    int *_csr_targets;              // size: _num_synapses
+    int *_csr_weights;              // size: _num_synapses
+    int _num_synapses;              // total connection count
     int *_biascurrent;              // neuron bias current
     iq_neuron *_neurons;
-    weight_index_list *_wlist;      // axon index for each neurons
     int _num_threads = 1;
 };
 
