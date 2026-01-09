@@ -18,8 +18,7 @@ struct SynapseGroup
     
     int apparent_tau;   
     int surrogate_tau;
-    int decay_num;      
-    int decay_den;      
+    int decay_shift_k;
 
     void init(int app_tau, int sur_tau) {
         apparent_tau = app_tau;
@@ -30,16 +29,21 @@ struct SynapseGroup
     }
 
     void recalculate_params() {
-        decay_num = surrogate_tau - 1;
-        decay_den = surrogate_tau;
+        // Use log2 approximation
+        // surrogate_tau is preferred to be the power of 2
+        // e.g. 2, 4, 8, 16, ...
+        if (surrogate_tau <= 0) surrogate_tau = 1;
+        decay_shift_k = (int)log2((float)surrogate_tau);
 
         if (apparent_tau <= surrogate_tau) {
              timer_threshold = 0; 
         } else {
-             // Exact logic from original iq_network.cpp
-             float num = log10((float)decay_num / decay_den);
+             float decay_factor = 1.0f - (1.0f / (1 << decay_shift_k)); // e.g. 0.875
+             float num = log10(decay_factor);
              float den = log10(((float)apparent_tau - 1) / apparent_tau);
-             timer_threshold = (int)(num / den);
+             
+             if (den <= 0) timer_threshold = 0;
+             else timer_threshold = (int)(num / den);
         }
     }
 
@@ -57,9 +61,16 @@ struct SynapseGroup
 
     void step() {
         if (timer > timer_threshold) {
-             if (decay_den != 0)
-                current_accumulator = (current_accumulator * decay_num) / decay_den;
-             timer = 0;
+            int decay = current_accumulator >> decay_shift_k;
+            
+            if (decay != 0) {
+                current_accumulator -= decay;
+            } else {
+                // "Leak by 1" for small values
+                if (current_accumulator > 0) current_accumulator -= 1;
+                else if (current_accumulator < 0) current_accumulator += 1;
+            }
+            timer = 0;
         }
         timer++;
     }
