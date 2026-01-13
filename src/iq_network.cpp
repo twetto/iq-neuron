@@ -72,7 +72,7 @@ int iq_network::linenum_neuronParameter(const char *par)
 
 int iq_network::set_neurons(const char *par)
 {
-    int i, rest, threshold, reset, a, b, noise;
+    int i, rest, threshold, reset, shift_a, shift_b, noise;
     FILE *fp;
 
     /*
@@ -84,9 +84,9 @@ int iq_network::set_neurons(const char *par)
     */
     fp = fopen(par, "r");
     while(fscanf(fp, " %d %d %d %d %d %d %d", &i, &rest, &threshold,
-            &reset, &a, &b, &noise) == 7) {
+            &reset, &shift_a, &shift_b, &noise) == 7) {
         if(i < _num_neurons)
-            (_neurons + i)->set(rest, threshold, reset, a, b, noise);
+            (_neurons + i)->set(rest, threshold, reset, shift_a, shift_b, noise);
     }
     fclose(fp);
     return 0;
@@ -258,10 +258,10 @@ int iq_network::set_biascurrent(int neuron_index, int biascurrent)
 }
 
 int iq_network::set_neuron(int neuron_index, int rest, int threshold,
-                           int reset, int a, int b, int noise)
+                           int reset, int shift_a, int shift_b, int noise)
 {
     if(neuron_index >= 0 && neuron_index < _num_neurons) {
-        (_neurons + neuron_index)->set(rest, threshold, reset, a, b, noise);
+        (_neurons + neuron_index)->set(rest, threshold, reset, shift_a, shift_b, noise);
         return 1;
     }
     else return 0;
@@ -326,7 +326,7 @@ extern "C"
     DLLEXPORTIQ int iq_network_num_neurons(iq_network* network) {return network->num_neurons();}
     DLLEXPORTIQ void iq_network_send_synapse(iq_network* network) {return network->send_synapse();}
     DLLEXPORTIQ int iq_network_set_biascurrent(iq_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
-    DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int a, int b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, a, b, noise);}
+    DLLEXPORTIQ int iq_network_set_neuron(iq_network* network, int neuron_index, int rest, int threshold, int reset, int shift_a, int shift_b, int noise) {return network->set_neuron(neuron_index, rest, threshold, reset, shift_a, shift_b, noise);}
     DLLEXPORTIQ int iq_network_set_weight(iq_network* network, int pre, int post, int weight, int tau) {return network->set_weight(pre, post, weight, tau);}
     DLLEXPORTIQ int iq_network_set_surrogate_tau(iq_network* network, int s_tau) {return network->set_surrogate_tau(s_tau);}
     DLLEXPORTIQ int iq_network_set_neuron_surrogate_tau(iq_network* network, int neuron_index, int s_tau) { return network->set_surrogate_tau(neuron_index, s_tau); }

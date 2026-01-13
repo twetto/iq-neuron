@@ -86,10 +86,10 @@ class iq_neuron
 public:
     iq_neuron() {};
     iq_neuron(int rest, int threshold,      // Set equation & noise strength
-              int reset, int a, int b, int noise);
+              int reset, int shift_a, int shift_b, int noise);
     bool is_set();
     void set(int rest, int threshold,       // Set equation & noise strength
-             int reset, int a, int b, int noise);
+             int reset, int shift_a, int shift_b, int noise);
     void set_vmax(int vmax);
     void set_vmin(int vmin);
 
@@ -111,7 +111,8 @@ public:
 
 private:
     int t_neuron;                                   // Iterator of timestep
-    int _rest, _threshold, _a, _b, _reset, _noise;  // IQ neuron parameters
+    int _rest, _threshold, _shift_a, _shift_b, _reset, _noise;
+                                                    // IQ neuron parameters
     int x , f_min, _spike_count = 0;
     int VMAX = 255;
     int VMIN = 0;

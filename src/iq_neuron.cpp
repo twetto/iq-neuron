@@ -7,9 +7,9 @@
 using namespace std;
 
 iq_neuron::iq_neuron(int rest, int threshold,
-                     int reset, int a, int b, int noise)
+                     int reset, int shift_a, int shift_b, int noise)
 {
-    set(rest, threshold, reset, a, b, noise);
+    set(rest, threshold, reset, shift_a, shift_b, noise);
     return;
 }
 
@@ -19,13 +19,21 @@ bool iq_neuron::is_set()
 }
 
 void iq_neuron::set(int rest, int threshold,
-                    int reset, int a, int b, int noise)
+                    int reset, int shift_a, int shift_b, int noise)
 {
     x = rest;                               // initialize with rest potential
     t_neuron = 0;
-    f_min = (a*rest + b*threshold) / (a+b); // dV/dt and others
-    _a = a;
-    _b = b;
+    
+    // dV/dt and others
+    // f_min = (a*rest + b*threshold) / (a+b)
+    // With a = 1/(1<<shift_a), b = 1/(1<<shift_b):
+    // f_min = (rest*(1<<shift_b) + threshold*(1<<shift_a)) / ((1<<shift_a) + (1<<shift_b))
+    int weight_a = 1 << shift_b;    // weight for rest (inverse of a's shift)
+    int weight_b = 1 << shift_a;    // weight for threshold (inverse of b's shift)
+    f_min = (weight_a * rest + weight_b * threshold) / (weight_a + weight_b);
+
+    _shift_a = shift_a;
+    _shift_b = shift_b;
     _rest = rest;
     _threshold = threshold;
     _reset = reset;
@@ -63,11 +71,11 @@ void iq_neuron::update_state(int external_current)
     int total_input = current_val + external_current;
 
     if(x < f_min)
-        f = _a * (_rest - x);
+        f = (_rest - x) >> _shift_a;
     else
-        f = _b * (x - _threshold);
+        f = (x - _threshold) >> _shift_b;
     
-    x += (f >> 3) + total_input + rand()%_noise - (_noise >> 1);
+    x += f + total_input + rand()%_noise - (_noise >> 1);
 
     _is_firing = false;
     if(x >= VMAX) {

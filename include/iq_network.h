@@ -20,7 +20,7 @@ public:
     void send_synapse();                    // proceed one timestep
     void printfile(FILE **fp);              // output potentials
     int set_biascurrent(int neuron_index, int biascurrent);
-    int set_neuron(int neuron_index, int rest, int threshold, int reset, int a, int b, int noise);
+    int set_neuron(int neuron_index, int rest, int threshold, int reset, int shift_a, int shift_b, int noise);
     int set_weight(int pre, int post, int weight, int tau);
     int set_surrogate_tau(int s_tau);       // default s_tau is 8
     int set_surrogate_tau(int neuron_index, int s_tau);

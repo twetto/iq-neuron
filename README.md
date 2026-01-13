@@ -61,9 +61,41 @@ Uninstall the package with `sudo pacman -Rs iq-neuron`.
 
 Please see the [tutorial](tutorial/tutorial.md) first.
 
-You can change the synaptic weights in the [Connection Table](inputs/Connection_Table_IQIF.txt). The numbers in each lines are `pre-synapse neuron index, post-synapse neuron index, weight, time constant` respectively.
+### Connection Table
 
-You can change the neuron parameters in the [neuron parameter file](inputs/neuronParameter_IQIF.txt). The parameters in each lines are `neuron index, rest potential, threshold potential, reset potential, noise strength` respectively.
+You can change the synaptic weights in the [Connection Table](inputs/Connection_Table_IQIF.txt). The numbers in each line are:
+
+```
+pre-synapse_index  post-synapse_index  weight  time_constant
+```
+
+### Neuron Parameters
+
+You can change the neuron parameters in the [neuron parameter file](inputs/neuronParameter_IQIF.txt). The parameters in each line are:
+
+```
+neuron_index  rest  threshold  reset  shift_a  shift_b  noise
+```
+
+Where:
+- `rest`: resting potential
+- `threshold`: firing threshold
+- `reset`: reset potential after spike
+- `shift_a`: bit-shift for leak dynamics (larger = slower leak toward rest)
+- `shift_b`: bit-shift for push dynamics (larger = slower push toward threshold)
+- `noise`: noise strength
+
+**Dynamics rate mapping:**
+
+| `shift` | Effective Rate |
+|---------|----------------|
+| 0       | 1              |
+| 1       | 1/2            |
+| 2       | 1/4            |
+| 3       | 1/8            |
+| 4       | 1/16           |
+
+> **Note:** If upgrading from v0.2.x, see [MIGRATION.md](MIGRATION.md) for parameter conversion.
 
 It is recommended to use multithreading only when number of neurons is large (>100 for example).
 
