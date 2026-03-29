@@ -237,6 +237,29 @@ int iq_network::get_current_accumulator(int neuron_index) {
     return 0;
 }
 
+int iq_network::set_current_accumulator(int neuron_index, int value)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->_synapse.current_accumulator = value;
+        return 1;
+    }
+    return 0;
+}
+
+void iq_network::get_all_current_accumulators(int* output_array)
+{
+    for(int i = 0; i < _num_neurons; i++) {
+        output_array[i] = (_neurons + i)->_synapse.current_accumulator;
+    }
+}
+
+void iq_network::set_all_current_accumulators(const int* input_array)
+{
+    for(int i = 0; i < _num_neurons; i++) {
+        (_neurons + i)->_synapse.current_accumulator = input_array[i];
+    }
+}
+
 int iq_network::get_decay_threshold(int neuron_index) {
     if(neuron_index >= 0 && neuron_index < _num_neurons) {
         return (_neurons + neuron_index)->get_decay_threshold();
@@ -295,6 +318,49 @@ int iq_network::potential(int neuron_index)
     return (_neurons + neuron_index)->potential();
 }
 
+int iq_network::set_potential(int neuron_index, int value)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->x = value;
+        return 1;
+    }
+    return 0;
+}
+
+int iq_network::get_is_firing(int neuron_index)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        return (_neurons + neuron_index)->_is_firing ? 1 : 0;
+    }
+    return 0;
+}
+
+int iq_network::set_is_firing(int neuron_index, int value)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->_is_firing = (value != 0);
+        return 1;
+    }
+    return 0;
+}
+
+int iq_network::get_synapse_timer(int neuron_index)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        return (_neurons + neuron_index)->_synapse.timer;
+    }
+    return 0;
+}
+
+int iq_network::set_synapse_timer(int neuron_index, int value)
+{
+    if(neuron_index >= 0 && neuron_index < _num_neurons) {
+        (_neurons + neuron_index)->_synapse.timer = value;
+        return 1;
+    }
+    return 0;
+}
+
 int iq_network::spike_count(int neuron_index)
 {
     return (_neurons + neuron_index)->spike_count();
@@ -332,13 +398,20 @@ extern "C"
     DLLEXPORTIQ int iq_network_set_neuron_surrogate_tau(iq_network* network, int neuron_index, int s_tau) { return network->set_surrogate_tau(neuron_index, s_tau); }
     DLLEXPORTIQ int iq_network_get_neuron_surrogate_tau(iq_network* network, int neuron_index) { return network->get_surrogate_tau(neuron_index); }
     DLLEXPORTIQ int iq_network_get_current_accumulator(iq_network* network, int neuron_index) { return network->get_current_accumulator(neuron_index); }
+    DLLEXPORTIQ int iq_network_set_current_accumulator(iq_network* network, int neuron_index, int value) { return network->set_current_accumulator(neuron_index, value); }
+    DLLEXPORTIQ void iq_network_get_all_current_accumulators(iq_network* network, int* output_array) { network->get_all_current_accumulators(output_array); }
+    DLLEXPORTIQ void iq_network_set_all_current_accumulators(iq_network* network, const int* input_array) { network->set_all_current_accumulators(input_array); }
     DLLEXPORTIQ int iq_network_get_decay_threshold(iq_network* network, int neuron_index) { return network->get_decay_threshold(neuron_index); }
     DLLEXPORTIQ int iq_network_set_vmax(iq_network* network, int neuron_index, int vmax) {return network->set_vmax(neuron_index, vmax);}
     DLLEXPORTIQ int iq_network_set_vmin(iq_network* network, int neuron_index, int vmin) {return network->set_vmin(neuron_index, vmin);}
     DLLEXPORTIQ int iq_network_potential(iq_network* network, int neuron_index) {return network->potential(neuron_index);}
+    DLLEXPORTIQ int iq_network_set_potential(iq_network* network, int neuron_index, int value) {return network->set_potential(neuron_index, value);}
+    DLLEXPORTIQ int iq_network_get_is_firing(iq_network* network, int neuron_index) {return network->get_is_firing(neuron_index);}
+    DLLEXPORTIQ int iq_network_set_is_firing(iq_network* network, int neuron_index, int value) {return network->set_is_firing(neuron_index, value);}
+    DLLEXPORTIQ int iq_network_get_synapse_timer(iq_network* network, int neuron_index) {return network->get_synapse_timer(neuron_index);}
+    DLLEXPORTIQ int iq_network_set_synapse_timer(iq_network* network, int neuron_index, int value) {return network->set_synapse_timer(neuron_index, value);}
     DLLEXPORTIQ int iq_network_spike_count(iq_network* network, int neuron_index) {return network->spike_count(neuron_index);}
     DLLEXPORTIQ void iq_network_get_all_spike_counts(iq_network* network, int* output_array) {return network->get_all_spike_counts(output_array);}
     DLLEXPORTIQ float iq_network_spike_rate(iq_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
     DLLEXPORTIQ void iq_network_set_num_threads(iq_network* network, int num_threads) {return network->set_num_threads(num_threads);}
 }
-

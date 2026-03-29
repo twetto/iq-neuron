@@ -27,10 +27,18 @@ public:
                                             // default s_tau is 8
     int get_surrogate_tau(int neuron_index);
     int get_current_accumulator(int neuron_index);
+    int set_current_accumulator(int neuron_index, int value);
+    void get_all_current_accumulators(int* output_array);
+    void set_all_current_accumulators(const int* input_array);
     int get_decay_threshold(int neuron_index);
     int set_vmax(int neuron_index, int vmax);
     int set_vmin(int neuron_index, int vmin);
     int potential(int neuron_index);
+    int set_potential(int neuron_index, int value);
+    int get_is_firing(int neuron_index);
+    int set_is_firing(int neuron_index, int value);
+    int get_synapse_timer(int neuron_index);
+    int set_synapse_timer(int neuron_index, int value);
     int spike_count(int neuron_index);
     void get_all_spike_counts(int* output_array);
     float spike_rate(int neuron_index);
@@ -58,4 +66,3 @@ private:
 };
 
 #endif
-
