@@ -2,32 +2,29 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Library for IQIF. A binary `libiq` for native C++ runtime and shared libraries `libiq-network`, `libiz-network`, and `liblif-network` are included. Please see below for running/installing instructions.
+Library for IQIF neuron simulation. Includes shared libraries `libiq-network`, `libiz-network`, and `liblif-network` (C++), a Python API via `iqif`, and a standalone binary `libiq` for direct C++ usage.
 
 ## Dependencies
 
-### Runtime:
+**Runtime:** OpenMP >= 4.5, Python >= 3.7, NumPy
 
-* OpenMP >= 4.5
+**Build:** GCC (C++11), CMake >= 3.15, pip
 
-* python3-matplotlib (plotting function)
+**macOS only:** `brew install cmake libomp`
 
-### Buildtime:
+## Installation
 
-* gcc (C++11)
+### Python (recommended)
 
-* cmake >= 3.9
+Builds the C++ libraries and installs everything in one step:
 
-* checkinstall (Debian-based packaging)
+```bash
+pip install .
+```
 
-* base-devel (Arch-based packaging)
+Uninstall with `pip uninstall python-iqif`.
 
-
-## Compile & Install Shared Libraries:
-
-`libiq-network.so`, `libiz-network.so`, and `liblif-network.so` can be used for bridging to [python-iqif](https://github.com/twetto/python-iqif).
-
-### Universal installation
+### System-wide C++ libraries only
 
 ```bash
 mkdir build && cd build
@@ -36,50 +33,83 @@ make -j
 sudo make install
 ```
 
-### Debian-based installation
-
-Instead of `sudo make install` you can use
+#### Debian-based packaging
 
 ```bash
 sudo checkinstall --pkgname iq-neuron
 ```
 
-Uninstall the package with `sudo dpkg -r iq-neuron`.
+Uninstall with `sudo dpkg -r iq-neuron`.
 
-### Arch-based installation
+#### Arch-based packaging
 
-First download the PKGBUILD, go to the working directory, then
+Download the PKGBUILD, go to the working directory, then:
 
 ```bash
 makepkg -si
 ```
 
-Uninstall the package with `sudo pacman -Rs iq-neuron`.
+Uninstall with `sudo pacman -Rs iq-neuron`.
 
+## Quick Start (Python)
 
-## Configuration & Usage
+```python
+from iqif import iqnet
 
-Please see the [tutorial](tutorial/tutorial.md) first.
+net = iqnet("params.txt", "conn.txt")
+net.set_biascurrent(0, 13)
 
-You can change the synaptic weights in the [Connection Table](inputs/Connection_Table_IQIF.txt). The numbers in each lines are `pre-synapse neuron index, post-synapse neuron index, weight, time constant` respectively.
+for t in range(1000):
+    net.send_synapse()
+    print(net.potential(0))
+```
 
-You can change the neuron parameters in the [neuron parameter file](inputs/neuronParameter_IQIF.txt). The parameters in each lines are `neuron index, rest potential, threshold potential, reset potential, noise strength` respectively.
-
-It is recommended to use multithreading only when number of neurons is large (>100 for example).
-
-I also have [Izhikevich model](include/iz_network.h) and [Leaky integrate-and-fire model](include/lif_network.h) for comparison. They are already in the shared libs. You need to change the [main code](src/main.cpp) to let it work in binary though.
-
-![IQIF & Izhikevich performing WTA](WTA.png)
-
-
-## Compile & Run
-
-Run the IQIF directly using `libiq` binary. Use this method if you feel more comfortable with C++ instead of Python.
+## Quick Start (C++)
 
 ```bash
 mkdir build && cd build
 cmake ..
 make -j
-./libiq < ../inputs/session.txt (or use your custom session)
+./libiq < ../inputs/session.txt
 ../utils/iq_plot.py
 ```
+
+## Configuration
+
+### Neuron Parameters
+
+Each line in the neuron parameter file:
+
+```
+neuron_index  rest  threshold  reset  shift_a  shift_b  noise
+```
+
+Where `shift_a` and `shift_b` control the bit-shift dynamics (larger = slower rate):
+
+| `shift` | Effective Rate |
+|---------|----------------|
+| 0       | 1              |
+| 1       | 1/2            |
+| 2       | 1/4            |
+| 3       | 1/8            |
+| 4       | 1/16           |
+
+### Connection Table
+
+Each line in the connection table:
+
+```
+pre-synapse_index  post-synapse_index  weight  time_constant
+```
+
+> **Note:** If upgrading from v0.2.x, see [MIGRATION.md](MIGRATION.md) for parameter conversion.
+
+## Other Models
+
+Izhikevich and Leaky Integrate-and-Fire models are included for comparison. See [iz_network.h](include/iz_network.h) and [lif_network.h](include/lif_network.h). For the standalone binary, modify [main.cpp](src/main.cpp) to select the desired model.
+
+## Notes
+
+It is recommended to use multithreading only when the number of neurons is large (>100).
+
+![IQIF & Izhikevich performing WTA](WTA.png)

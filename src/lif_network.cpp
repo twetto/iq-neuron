@@ -373,15 +373,6 @@ int ilif_network::get_weight(const char *con)
         *(_weight + _num_neurons*i + j) = weight;
         *(_tau + _num_neurons*i + j) = tau;
         (_wlist + i)->push_front(j);
-        if(tau >= 10) {
-            *(_f + _num_neurons*i + j) = (int) (log10(0.875) / log10((tau-1)/(float) tau));
-            //printf("synapse[%d][%d]: decays every %d steps\n", i, j, *(_f + _num_neurons*i + j));
-        }
-        else {
-            printf("tau[%d][%d] = %d\n", i, j, *(_tau + _num_neurons*i + j));
-            printf("error: synapse time constant cannot be less than 10!\n");
-            return 1;
-        }
     }
     fclose(fp);
     return 0;
@@ -408,25 +399,7 @@ void ilif_network::send_synapse()
                     int *ptw = _weight + _num_neurons*i;
                     weight_index_node *j = (_wlist + i)->_first;
                     while(j != NULL) {
-                        *(pts + j->_data) += *(ptw + j->_data);
-                        ncurrent_private[j->_data] += *(pts + j->_data);
-                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                            *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                        }
-                        (*(ptn + j->_data))++;
-                        j = j->_next;
-                    }
-                }
-                else {
-                    weight_index_node *j = (_wlist + i)->_first;
-                    while(j != NULL) {
-                        ncurrent_private[j->_data] += *(pts + j->_data);
-                        if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                            *(ptn + j->_data) = 0;
-                            *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                        }
-                        (*(ptn + j->_data))++;
+                        ncurrent_private[j->_data] += *(ptw + j->_data);
                         j = j->_next;
                     }
                 }
@@ -449,25 +422,7 @@ void ilif_network::send_synapse()
                 int *ptw = _weight + _num_neurons*i;
                 weight_index_node *j = (_wlist + i)->_first;
                 while(j != NULL) {
-                    *(pts + j->_data) += *(ptw + j->_data);
-                    *(_ncurrent + j->_data) += *(pts + j->_data);
-                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                        *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                    }
-                    (*(ptn + j->_data))++;
-                    j = j->_next;
-                }
-            }
-            else {
-                weight_index_node *j = (_wlist + i)->_first;
-                while(j != NULL) {
-                    *(_ncurrent + j->_data) += *(pts + j->_data);
-                    if(*(ptn + j->_data) > *(ptf + j->_data)) {
-                        *(ptn + j->_data) = 0;
-                        *(pts + j->_data) = *(pts + j->_data) * 7 / 8;
-                    }
-                    (*(ptn + j->_data))++;
+                    *(_ncurrent + j->_data) += *(ptw + j->_data);
                     j = j->_next;
                 }
             }
@@ -476,8 +431,29 @@ void ilif_network::send_synapse()
 
     /* solving DE, reset post-syn current */
     for(int i = 0; i < _num_neurons; i++) {
+        int *ptau = _tau + _num_neurons*i;
+        int valid_tau_i = 0;                // valid post synaptic tau
+        for(int ii = 0; ii < _num_neurons; ii++) {
+            weight_index_node *j = (_wlist + ii)->_first;
+            while(j != NULL) {
+                if(j->_data == i) valid_tau_i = *(_tau + _num_neurons*ii + j->_data);
+                j = j->_next;
+            }
+        }
+        int decay;
+        if(valid_tau_i != 0) {
+            decay = *(_ncurrent + i) >> (int) log2(valid_tau_i);
+            if(decay != 0)
+                *(_ncurrent + i) = *(_ncurrent + i) - decay;
+            else if(*(_ncurrent + i) > 0)
+                *(_ncurrent + i) = *(_ncurrent + i) - 1;
+            else if(*(_ncurrent + i) < 0)
+                *(_ncurrent + i) = *(_ncurrent + i) + 1;
+        }
+        
         (_neurons + i)->ilif(*(_ncurrent + i) + *(_biascurrent + i));
-        *(_ncurrent + i) = 0;
+        if(valid_tau_i == 0)
+            *(_ncurrent + i) = 0;
     }
     return;
 }
@@ -574,6 +550,7 @@ void ilif_network::set_num_threads(int num_threads)
 extern "C"
 {
     DLLEXPORTLIF lif_network* lif_network_new(const char *par, const char *con) {return new lif_network(par, con);}
+    DLLEXPORTLIF void lif_network_delete(lif_network* network) {delete network;}
     DLLEXPORTLIF int lif_network_num_neurons(lif_network* network) {return network->num_neurons();}
     DLLEXPORTLIF void lif_network_send_synapse(lif_network* network) {return network->send_synapse();}
     DLLEXPORTLIF int lif_network_set_biascurrent(lif_network* network, int neuron_index, float biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}
@@ -586,6 +563,7 @@ extern "C"
     DLLEXPORTLIF float lif_network_spike_rate(lif_network* network, int neuron_index) {return network->spike_rate(neuron_index);}
     DLLEXPORTLIF void lif_network_set_num_threads(lif_network* network, int num_threads) {return network->set_num_threads(num_threads);}
     DLLEXPORTLIF ilif_network* ilif_network_new(const char *par, const char *con) {return new ilif_network(par, con);}
+    DLLEXPORTLIF void ilif_network_delete(ilif_network* network) {delete network;}
     DLLEXPORTLIF int ilif_network_num_neurons(ilif_network* network) {return network->num_neurons();}
     DLLEXPORTLIF void ilif_network_send_synapse(ilif_network* network) {return network->send_synapse();}
     DLLEXPORTLIF int ilif_network_set_biascurrent(ilif_network* network, int neuron_index, int biascurrent) {return network->set_biascurrent(neuron_index, biascurrent);}

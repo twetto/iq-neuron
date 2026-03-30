@@ -1,0 +1,28 @@
+[build-system]
+requires = ["scikit-build-core>=0.5", "numpy"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "python-iqif"
+version = "0.3.0"
+description = "A Python library for the Integer Quadratic Integrate-and-Fire neuron API."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "twetto", email = "franky85912@gmail.com"},
+]
+requires-python = ">=3.7"
+dependencies = ["numpy"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+]
+
+[project.urls]
+Homepage = "https://github.com/twetto/iq-neuron"
+
+[tool.scikit-build]
+wheel.packages = ["iqif"]
+build.targets = ["iq-network", "iz-network", "lif-network"]

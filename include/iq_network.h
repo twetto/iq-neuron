@@ -5,8 +5,8 @@
 #ifndef IQ_NETWORK_H
 #define IQ_NETWORK_H
 #include "iq_neuron.h"
-#include "weight_index_list.h"
 #include <math.h>
+#include <algorithm>
 #include <omp.h>
 
 class iq_network
@@ -20,13 +20,27 @@ public:
     void send_synapse();                    // proceed one timestep
     void printfile(FILE **fp);              // output potentials
     int set_biascurrent(int neuron_index, int biascurrent);
-    int set_neuron(int neuron_index, int rest, int threshold, int reset, int a, int b, int noise);
+    int set_neuron(int neuron_index, int rest, int threshold, int reset, int shift_a, int shift_b, int noise);
     int set_weight(int pre, int post, int weight, int tau);
     int set_surrogate_tau(int s_tau);       // default s_tau is 8
+    int set_surrogate_tau(int neuron_index, int s_tau);
+                                            // default s_tau is 8
+    int get_surrogate_tau(int neuron_index);
+    int get_current_accumulator(int neuron_index);
+    int set_current_accumulator(int neuron_index, int value);
+    void get_all_current_accumulators(int* output_array);
+    void set_all_current_accumulators(const int* input_array);
+    int get_decay_threshold(int neuron_index);
     int set_vmax(int neuron_index, int vmax);
     int set_vmin(int neuron_index, int vmin);
     int potential(int neuron_index);
+    int set_potential(int neuron_index, int value);
+    int get_is_firing(int neuron_index);
+    int set_is_firing(int neuron_index, int value);
+    int get_synapse_timer(int neuron_index);
+    int set_synapse_timer(int neuron_index, int value);
     int spike_count(int neuron_index);
+    void get_all_spike_counts(int* output_array);
     float spike_rate(int neuron_index);
     void set_num_threads(int num_threads);  // for multithreading
 
@@ -42,15 +56,13 @@ private:
     int get_weight(const char *con);    // read from file con
     int _num_neurons;
     int _s_tau = 8;                 // network-wide surrogate time constant
-    int *_tau, *_f, *_n;            // synapse decay time constant & siblings
-    int *_weight;                   // synapse weight matrix
-    int *_scurrent;                 // synapse current matrix
-    int *_ncurrent;                 // neuron input synapse current
+    int *_csr_offsets;              // size: _num_neurons + 1
+    int *_csr_targets;              // size: _num_synapses
+    int *_csr_weights;              // size: _num_synapses
+    int _num_synapses;              // total connection count
     int *_biascurrent;              // neuron bias current
     iq_neuron *_neurons;
-    weight_index_list *_wlist;      // axon index for each neurons
     int _num_threads = 1;
 };
 
 #endif
-

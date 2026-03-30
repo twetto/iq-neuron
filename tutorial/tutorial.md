@@ -15,10 +15,21 @@ touch neuron_IQIF.txt table.txt
 
 edit the `neuron_IQIF.txt`:  
 ```
-0 128 200 128 1 1 0
+0 128 200 128 3 3 0
 ```
 
-As indecated in [iq-neuron README](https://github.com/twetto/iq-neuron/blob/master/README.md), each of the numbers is `neuron index, rest potential, threshold potential, reset potential, a, b, noise strength` respectively.
+As indicated in [iq-neuron README](https://github.com/twetto/iq-neuron/blob/master/README.md), each of the numbers is `neuron index, rest potential, threshold potential, reset potential, shift_a, shift_b, noise strength` respectively.
+
+The `shift_a` and `shift_b` parameters control the dynamics rate via bit-shifting:
+
+| `shift` | Effective Rate |
+|---------|----------------|
+| 0       | 1              |
+| 1       | 1/2            |
+| 2       | 1/4            |
+| 3       | 1/8            |
+
+Larger shift values result in slower dynamics.
 
 Right now we only have one neuron, so we can leave the `table.txt` empty. One can also add recurrent connection to it, but that is beyond this tutorial.
 
@@ -79,5 +90,3 @@ And that's it! You are now able to do whatever you want to the network. I also h
 You might still have a lot of questions. If that's the case, feel free to ask:
 
 `chen_fu_yeh@lolab-nthu.org`
-
-

@@ -1,0 +1,42 @@
+# Build
+build/
+out/
+
+# Shared libraries
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# C++ objects
+*.o
+*.a
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+*.whl
+venv/
+.venv/
+
+# Editors
+*.swp
+*~
+.vscode/
+.idea/
+
+# Simulation output
+*.txt
+!inputs/*.txt
+!tutorial/*.txt
+data/
+figs_stats/
+utils/
+
+# Trash
+*.old
+
+# OS
+.DS_Store
