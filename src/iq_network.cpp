@@ -291,8 +291,22 @@ int iq_network::set_neuron(int neuron_index, int rest, int threshold,
 }
 
 int iq_network::set_weight(int pre, int post, int weight, int tau) {
-    printf("Warning: set_weight is not available in CSR mode. Please modify the connection table directly.\n");
-    return 0; 
+    if(pre < 0 || pre >= _num_neurons || post < 0 || post >= _num_neurons)
+        return 0;
+
+    int start = _csr_offsets[pre];
+    int end   = _csr_offsets[pre + 1];
+
+    for(int k = start; k < end; k++) {
+        if(_csr_targets[k] == post) {
+            _csr_weights[k] = weight;
+            (_neurons + post)->set_synapse_tau(tau, _s_tau);
+            return 1;
+        }
+    }
+
+    printf("Warning: synapse %d -> %d not found in connection table.\n", pre, post);
+    return 0;
 }
 
 int iq_network::set_vmax(int neuron_index, int vmax)
