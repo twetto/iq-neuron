@@ -42,7 +42,7 @@ struct SynapseGroup
              float num = log10(decay_factor);
              float den = log10(((float)apparent_tau - 1) / apparent_tau);
              
-             if (den <= 0) timer_threshold = 0;
+             if (den == 0.0f) timer_threshold = 0;
              else timer_threshold = (int)(num / den);
         }
     }

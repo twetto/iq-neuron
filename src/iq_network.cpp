@@ -38,8 +38,8 @@ iq_network::iq_network(const char *par, const char *con)
     _csr_weights = NULL;
     _num_synapses = 0;
 
-    get_weight(con);
     set_neurons(par);
+    get_weight(con);
     return;
 }
 
