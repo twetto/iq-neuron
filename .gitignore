@@ -40,3 +40,6 @@ utils/
 
 # OS
 .DS_Store
+
+# Others
+continue.sh
