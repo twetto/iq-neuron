@@ -1,0 +1,16 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "iqif-rs"
+version = "0.1.0"
+description = "Bit-exact Rust port of the IQIF spiking-neuron network (RIIR of iq-neuron)"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[tool.maturin]
+module-name = "iqif_rs"
