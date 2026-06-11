@@ -1,0 +1,19 @@
+[package]
+name = "iqif-py"
+version = "0.1.0"
+edition = "2021"
+description = "PyO3 bindings for the integer IQIF network (module: iqif_rs)"
+license = "MIT"
+
+[lib]
+name = "iqif_rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py39"] }
+iqif-core = { path = "../iqif-core" }
+iqif-gpu = { path = "../iqif-gpu", optional = true }
+
+[features]
+# Compile the GPU backend into the wheel so `device="gpu"` works at runtime.
+gpu = ["dep:iqif-gpu"]

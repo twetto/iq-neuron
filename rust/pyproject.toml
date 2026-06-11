@@ -13,4 +13,5 @@ classifiers = [
 ]
 
 [tool.maturin]
+manifest-path = "crates/iqif-py/Cargo.toml"
 module-name = "iqif_rs"

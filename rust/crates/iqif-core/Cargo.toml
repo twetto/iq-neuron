@@ -1,0 +1,9 @@
+[package]
+name = "iqif-core"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust bit-exact IQIF integer dynamics (no Python/GPU deps)"
+license = "MIT"
+
+[lib]
+name = "iqif_core"

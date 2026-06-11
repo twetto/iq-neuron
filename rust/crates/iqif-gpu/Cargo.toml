@@ -1,0 +1,14 @@
+[package]
+name = "iqif-gpu"
+version = "0.1.0"
+edition = "2021"
+description = "wgpu GPU backend for the integer IQIF network (skeleton)"
+license = "MIT"
+
+[lib]
+name = "iqif_gpu"
+
+[dependencies]
+iqif-core = { path = "../iqif-core" }
+# wgpu / pollster / bytemuck are added in Phase 2 (see rust/PLAN.md), once the
+# integer-semantics sanity kernel has been validated on-device.
