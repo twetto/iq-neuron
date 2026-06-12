@@ -27,8 +27,49 @@ matches C++/Rust on the three operations that matter:
 The only floating-point in IQIF (`log2`/`log10` in `recalculate_params`) runs
 **once at setup on the CPU**; only the resulting integers are uploaded. So the
 GPU hot path never touches floats. **Validation step 0** (before trusting any
-of this): a throwaway WGSL kernel that checks `>>` and `/` on *negative*
-operands against the CPU on the actual RADV device.
+of this): a WGSL kernel that checks `>>`, `/`, `%` on *negative* operands
+against the CPU on the actual device — implemented in `iqif-gpu/src/sanity.rs`
+(+`sanity.wgsl`), run via the `relied_on_ops_are_bit_exact_on_every_backend`
+test.
+
+### Phase-2 finding: hardware signed `%` is NOT portable (use `a-(a/b)*b`)
+
+Running the sanity kernel on the dev NVIDIA RTX 3060 surfaced a real driver
+divergence from the WGSL spec, **not** confined to edge cases:
+
+| backend | `>>` `/` `*` | signed `%` |
+|---------|:---:|:---:|
+| **DX12**   | exact | **exact** |
+| **Vulkan** | exact | **WRONG for negative dividend** (85/155 pairs) |
+| **GL**     | exact | **WRONG for negative dividend** (85/155 pairs) |
+
+NVIDIA's Vulkan/GL paths compute `a % b` with the *divisor's* sign (Euclidean-ish)
+instead of truncating toward zero — e.g. `-1000000007 % 3` gives `2`, not `-2`;
+with both operands negative it returns the dividend untouched. Ordinary ~1e9
+operands trigger it, so "the sims stay in range" does **not** save us.
+
+This is the NVIDIA driver's shader codegen, **not OS-specific**: the same RTX
+3060 reproduces the broken Vulkan `%` under Linux as well as Windows. So it is
+not something a platform switch escapes — only the `a-(a/b)*b` form does.
+
+**Rule for all GPU kernels (Phase 3+): never emit raw signed `%`.** Compute
+remainder as `rem = a - (a/b)*b`. `/` is correct on every backend, so this is
+bit-exact everywhere — validated on-device (the `rem_via_div` lane passes on
+Vulkan/GL/DX12). The allow-list lives in `iqif_gpu::RELIED_ON_OPS`. (For the
+current network this is belt-and-suspenders: the only hot-path `%` is
+`rng.next() % noise`, both operands non-negative — but the rule keeps us correct
+if that ever changes, and keeps us off DX12-only.)
+
+**Why not just pin DX12?** It is Windows-only — the RADV/Linux box has no DX12,
+only Vulkan, where raw `%` is exactly the broken path. Portability (the whole
+"works on every device" premise) requires the `a-(a/b)*b` form, not a backend
+bet. DX12 may still be *preferred* on Windows for perf, but correctness must not
+depend on it. The workaround is ~free: GPUs synthesize both `/` and `%` from the
+same division anyway, and integer div/rem doesn't appear in the per-step hot
+path (only `>>`, `+`, compare do).
+
+**Still TODO on the RADV box:** re-run this same test there to confirm RADV's
+Vulkan `%` behavior and that the relied-on ops are exact.
 
 ## Architecture: Cargo workspace under `rust/`
 
@@ -95,7 +136,10 @@ reference, 46367 step-by-step integer checks). Extend it to also run
       parity-proven vs C++.
 - [x] **Phase 1** — Workspace refactor + PyTorch-style `device=` plumbing.
       CPU arm fully working; GPU arm behind the `gpu` feature as a stub.
-- [ ] **Phase 2** — WGSL integer sanity kernel on RADV (`>>`, `/` on negatives).
+- [x] **Phase 2** — WGSL integer sanity kernel (`>>`, `/`, `%` on negatives),
+      run on-device per backend. **Found NVIDIA Vulkan/GL break signed `%`;**
+      adopted `rem = a-(a/b)*b` as the portable rule (see finding above). RADV
+      re-run still pending.
 - [ ] **Phase 3** — Build CSC (transposed adjacency) in `iqif_core`; upload
       buffers; `propagate` + `update_state` WGSL kernels; state stays on-device.
 - [ ] **Phase 4** — Bulk readback API; wire GPU arm into `Backend`; extend the

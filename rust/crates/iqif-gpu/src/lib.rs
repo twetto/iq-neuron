@@ -8,6 +8,11 @@
 
 use iqif_core::IqNetwork;
 
+mod sanity;
+pub use sanity::{
+    check_integer_semantics, check_integer_semantics_on, Mismatch, SanityReport, RELIED_ON_OPS,
+};
+
 /// Placeholder GPU-resident IQIF network.
 pub struct GpuNetwork {
     /// CPU reference network; kernels will read setup params off this and

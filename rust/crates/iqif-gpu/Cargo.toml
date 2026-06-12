@@ -8,7 +8,10 @@ license = "MIT"
 [lib]
 name = "iqif_gpu"
 
+# wgpu / pollster / bytemuck arrived in Phase 2 (see rust/PLAN.md) for the
+# integer-semantics sanity kernel; they carry forward into the real kernels.
 [dependencies]
+bytemuck = { version = "1.25.0", features = ["derive"] }
 iqif-core = { path = "../iqif-core" }
-# wgpu / pollster / bytemuck are added in Phase 2 (see rust/PLAN.md), once the
-# integer-semantics sanity kernel has been validated on-device.
+pollster = "0.4.0"
+wgpu = "29.0.3"
