@@ -132,6 +132,11 @@ pub struct GpuNetwork {
     sync: Mutex<HostSync>,
 }
 
+/// Default threads-per-workgroup for the compute kernels. Phase-5 sweeps showed
+/// this is a reasonable all-round choice; override via
+/// [`GpuNetwork::from_core_with_workgroup`].
+pub const DEFAULT_WORKGROUP_SIZE: u32 = 64;
+
 fn acquire_device() -> Result<(wgpu::Device, wgpu::Queue), String> {
     let instance = wgpu::Instance::default();
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -156,16 +161,24 @@ impl GpuNetwork {
     /// Build the CPU reference from text, then upload a bit-exact mirror to the
     /// GPU. Fallible because device acquisition can fail (no adapter, etc.).
     pub fn from_text(par: &str, con: &str) -> Result<Self, String> {
-        Self::build(IqNetwork::from_text(par, con))
+        Self::build_with(IqNetwork::from_text(par, con), DEFAULT_WORKGROUP_SIZE)
     }
 
     /// Upload a clone of an existing CPU network's setup + initial state.
     pub fn from_core(core: &IqNetwork) -> Result<Self, String> {
-        Self::build(core.clone())
+        Self::build_with(core.clone(), DEFAULT_WORKGROUP_SIZE)
     }
 
-    /// Take ownership of a core and upload a bit-exact mirror to the GPU.
-    fn build(core: IqNetwork) -> Result<Self, String> {
+    /// Like [`from_core`](Self::from_core) but pins the compute workgroup size,
+    /// for Phase-5 occupancy tuning. The dynamics are identical for any size;
+    /// only throughput changes.
+    pub fn from_core_with_workgroup(core: &IqNetwork, workgroup_size: u32) -> Result<Self, String> {
+        Self::build_with(core.clone(), workgroup_size)
+    }
+
+    /// Take ownership of a core and upload a bit-exact mirror to the GPU,
+    /// compiling the kernels for `workgroup_size` threads per workgroup.
+    fn build_with(core: IqNetwork, workgroup_size: u32) -> Result<Self, String> {
         let num_neurons = core.num_neurons() as usize;
         if num_neurons == 0 {
             return Err("cannot build a GpuNetwork with zero neurons".into());
@@ -285,9 +298,13 @@ impl GpuNetwork {
             ],
         });
 
+        // The kernel hardcodes `@workgroup_size(64)`; patch it for tuning. The
+        // `if (i >= num_neurons) return;` guard makes any size correct.
+        let shader_src = include_str!("step.wgsl")
+            .replace("@workgroup_size(64)", &format!("@workgroup_size({workgroup_size})"));
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("iqif-step"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("step.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(shader_src.into()),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("iqif-pipeline-layout"),
@@ -320,7 +337,7 @@ impl GpuNetwork {
             readback_buf,
             num_neurons,
             state_bytes,
-            workgroups: num_neurons.div_ceil(64) as u32,
+            workgroups: num_neurons.div_ceil(workgroup_size as usize) as u32,
             // Cache starts coherent with the just-uploaded initial state.
             sync: Mutex::new(HostSync { state, fresh: true, dirty: false }),
         })

@@ -161,4 +161,29 @@ reference, 46367 step-by-step integer checks). Extend it to also run
       adapter). Rust-level `cache_backed_api_matches_cpu` proves the cache +
       setters bit-exact vs the core. (Running the Python test needs
       `maturin develop --features gpu` + the C++ `iqif` module.)
-- [ ] **Phase 5** — Benchmark at connectome scale; tune workgroup sizing.
+- [x] **Phase 5** — `examples/bench.rs` times CPU vs resident GPU on synthetic
+      sparse nets (fan-out 16, 200 steps) and sweeps workgroup size; workgroup
+      size is now configurable (`from_core_with_workgroup`, default 64).
+
+      Measured on an RTX 3060 (Vulkan), million neuron-updates/s:
+
+      | N        | CPU  | GPU   | speedup |
+      |----------|-----:|------:|--------:|
+      | 1 000    | 75   | 33    | 0.44×   |
+      | 10 000   | 56   | 285   | 5.1×    |
+      | 100 000  | 18   | 248   | 13.5×   |
+      | 500 000  | 8    | 126   | 16.5×   |
+
+      Confirms the thesis: **CPU wins below ~a few thousand neurons** (per-step
+      dispatch/submit overhead dominates), GPU wins from ~10k up, ~15× at 0.5M.
+      Workgroup sweep at N=500k (warm): wg=32 → 181, **wg=64 → 159**, 128 → 155,
+      256 → 157 Mupd/s. wg=32 (NVIDIA warp size) is ~14% faster *here*, but AMD
+      wavefronts are 64, so **64 stays the portable default**; pin per-device via
+      `from_core_with_workgroup`. (Table GPU figures run slightly cold — the GPU
+      downclocks during the long preceding CPU loop; warm throughput is the
+      higher sweep number.)
+
+      Still open: the headroom beyond this is async/pipelined readback (overlap
+      compute with the bulk transfer) and one-submit-per-N-steps batching to cut
+      per-step submit overhead — both optional, and the genuinely "hard Rust"
+      part (futures/lifetimes) of the project.
