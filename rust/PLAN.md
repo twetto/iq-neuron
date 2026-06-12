@@ -148,6 +148,17 @@ reference, 46367 step-by-step integer checks). Extend it to also run
       wraps mod 2^32 while the *debug* CPU core panics on overflow — they agree
       only while in range, so keep dynamics bounded (a release CPU build wraps
       and matches). Backend wiring for per-neuron getters is still Phase 4.
-- [ ] **Phase 4** — Bulk readback API; wire GPU arm into `Backend`; extend the
-      parity test to `device="gpu"`.
+- [x] **Phase 4** — `GpuNetwork` implements the full `Backend` surface. A
+      `Mutex<HostSync>` cache mirrors device state: reads pull a fresh copy only
+      when the GPU has advanced, writes batch and flush before the next step —
+      so the parity test's per-neuron getter storm costs one readback per step,
+      not a PCIe round-trip per call. State getters/setters go through the cache;
+      setup-changing setters (`set_biascurrent`/`set_neuron`/`set_weight`/
+      `set_surrogate_tau`/`set_vmax/vmin`) mutate the retained core and re-derive
+      + re-upload params/edges (the CSR↔CSC mutation cost we flagged). GPU arm
+      wired into the PyO3 `Backend`; `tests/test_rust_parity.py` now drives
+      `device="gpu"` alongside CPU (skips cleanly without the `gpu` feature/an
+      adapter). Rust-level `cache_backed_api_matches_cpu` proves the cache +
+      setters bit-exact vs the core. (Running the Python test needs
+      `maturin develop --features gpu` + the C++ `iqif` module.)
 - [ ] **Phase 5** — Benchmark at connectome scale; tune workgroup sizing.

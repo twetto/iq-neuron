@@ -71,6 +71,75 @@ fn feedforward_network_with_firing_matches_cpu() {
 }
 
 #[test]
+fn cache_backed_api_matches_cpu() {
+    // Mirrors tests/test_rust_parity.py's access pattern: set state up front,
+    // then [step, read every neuron] each step, plus bulk accumulator and
+    // spike-count reads. Validates the lazy host-sync cache and the setters that
+    // re-derive GPU buffers, against the CPU core's inherent API.
+    // Known-bounded params (same family as the feed-forward test) so the debug
+    // CPU core doesn't overflow; small preset accumulators keep it in range.
+    let par = "0 0 128 128 15 1 0\n1 0 128 128 15 1 0\n";
+    let con = "0 1 8 8\n";
+    let mut core = IqNetwork::from_text(par, con);
+    let mut gpu = match GpuNetwork::from_text(par, con) {
+        Ok(g) => g,
+        Err(e) if is_no_adapter(&e) => {
+            eprintln!("skipping cache API parity: {e}");
+            return;
+        }
+        Err(e) => panic!("GpuNetwork build failed: {e}"),
+    };
+
+    // Setters before stepping (set_biascurrent re-derives GPU params).
+    core.set_biascurrent(0, 25);
+    gpu.set_biascurrent(0, 25);
+
+    // Bulk set, then bulk get round-trip must agree immediately (no step).
+    core.set_all_current_accumulators(&[10, 20]);
+    gpu.set_all_current_accumulators(&[10, 20]);
+    assert_eq!(
+        core.get_all_current_accumulators(),
+        gpu.get_all_current_accumulators(),
+        "bulk accumulator round-trip"
+    );
+
+    let mut total_spikes = 0i64;
+    for t in 0..120 {
+        core.send_synapse();
+        gpu.step();
+        for i in 0..2 {
+            assert_eq!(core.potential(i), gpu.potential(i), "potential n{i} t{t}");
+            assert_eq!(
+                core.get_current_accumulator(i),
+                gpu.get_current_accumulator(i),
+                "accumulator n{i} t{t}"
+            );
+            assert_eq!(
+                core.get_synapse_timer(i),
+                gpu.get_synapse_timer(i),
+                "synapse timer n{i} t{t}"
+            );
+            assert_eq!(core.get_is_firing(i), gpu.get_is_firing(i), "is_firing n{i} t{t}");
+        }
+        total_spikes += core.get_is_firing(0) as i64;
+    }
+
+    // Derived params getter (the log2/log10 path) must match.
+    for i in 0..2 {
+        assert_eq!(core.get_decay_threshold(i), gpu.get_decay_threshold(i), "decay_threshold n{i}");
+    }
+
+    // Read-and-reset bulk spike counts must agree (neuron 0 fired by now).
+    assert!(total_spikes > 0, "neuron 0 never fired; spike-count path not exercised");
+    assert_eq!(
+        core.get_all_spike_counts(),
+        gpu.get_all_spike_counts(),
+        "bulk spike counts"
+    );
+    eprintln!("cache-backed API parity OK over 120 steps, {total_spikes} spikes on n0");
+}
+
+#[test]
 fn noisy_neuron_matches_cpu_lcg() {
     // Single neuron with noise > 1, so the per-step LCG noise term is active.
     // Parity here proves the GPU replicates the CPU's integer noise stream.

@@ -2,14 +2,27 @@
 //! neuron and network from the C++ reference (`src/iq_neuron.cpp`,
 //! `src/iq_network.cpp`).
 //!
-//! Everything is plain `i32` integer arithmetic, mirroring C++ `int`:
-//!   - `>>` on signed ints is arithmetic shift in both languages,
-//!   - `/` and `%` truncate toward zero in both languages,
-//! so the dynamics reproduce the C++ output exactly (for the deterministic
-//! `noise <= 1` case used by the test suite).
+//! Everything is plain `i32` integer arithmetic, mirroring C++ `int`. The math
+//! reproduces the C++ output exactly (for the deterministic `noise <= 1` case
+//! the test suite uses) because the operations that matter behave identically:
 //!
-//! This module is deliberately free of any Python/PyO3 dependency so a future
-//! GPU (wgpu) backend can build on the same reference semantics.
+//! - `>>` on signed ints is an arithmetic shift in both languages;
+//! - `/` and `%` truncate toward zero in both languages.
+//!
+//! **Maintenance note — do not "idiomatize" the arithmetic.** This is a
+//! deliberate C++ transliteration, kept structurally close so it can be audited
+//! line-by-line against the reference and proven equivalent by
+//! `tests/test_rust_parity.py`. Preserve the integer/shift semantics as-is:
+//! rewriting the hot path into iterator or checked-arithmetic style risks
+//! silently changing overflow/wrapping behavior and breaking bit-exactness for
+//! zero functional gain. (Known gap: debug builds panic on `i32` overflow where
+//! C++ wraps mod 2^32, so the port is bit-exact only while values stay in range
+//! — a release build wraps and matches; true overflow fidelity would mean
+//! `Wrapping<i32>`.) Idiomatic cleanup is a deliberate later stage, gated on
+//! retiring the C++ oracle.
+//!
+//! This module is deliberately free of any Python/PyO3 dependency so the GPU
+//! (wgpu) backend can build on the same reference semantics.
 
 /// Post-synaptic current accumulator with timer-gated bit-shift decay.
 /// Mirror of the C++ `SynapseGroup` struct.
@@ -21,6 +34,12 @@ pub struct SynapseGroup {
     pub apparent_tau: i32,
     pub surrogate_tau: i32,
     pub decay_shift_k: i32,
+}
+
+impl Default for SynapseGroup {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SynapseGroup {
@@ -135,6 +154,12 @@ pub struct IqNeuron {
     pub is_firing: bool,
     pub synapse: SynapseGroup,
     rng: Lcg,
+}
+
+impl Default for IqNeuron {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl IqNeuron {
@@ -348,6 +373,7 @@ pub struct Csc {
 }
 
 /// IQIF network with CSR-stored synapses. Mirror of the C++ `iq_network`.
+#[derive(Clone)]
 pub struct IqNetwork {
     num_neurons: usize,
     s_tau: i32,

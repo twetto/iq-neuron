@@ -9,6 +9,7 @@
 
 use bytemuck::{Pod, Zeroable};
 use iqif_core::{IqNetwork, NeuronSnapshot};
+use std::sync::Mutex;
 use wgpu::util::DeviceExt;
 
 mod sanity;
@@ -94,19 +95,41 @@ fn state_of(s: &NeuronSnapshot) -> GpuState {
     }
 }
 
-/// GPU-resident IQIF network. Holds the wgpu device/queue, the two compute
-/// pipelines, the resident state buffer, and a readback staging buffer.
+/// Host mirror of the GPU state buffer, kept coherent lazily (PyTorch-style):
+/// reads pull a fresh copy only when the device has advanced; writes are batched
+/// and flushed to the device just before the next step. This turns the parity
+/// test's per-neuron getter storm into one readback per timestep instead of one
+/// PCIe round-trip per call.
+struct HostSync {
+    /// Mirror of `state_buf`. Authoritative for *state* reads whenever `fresh`.
+    state: Vec<GpuState>,
+    /// `state` reflects the latest device values (no step since last readback).
+    fresh: bool,
+    /// `state` has host writes not yet uploaded to the device.
+    dirty: bool,
+}
+
+/// GPU-resident IQIF network. The wgpu device owns the live state; a retained
+/// `IqNetwork` core is the authority for *setup/topology* (so connectivity- or
+/// param-changing setters re-derive and re-upload cleanly), while the GPU plus
+/// the [`HostSync`] cache are the authority for evolving *state*.
 pub struct GpuNetwork {
+    /// Setup/topology authority. Its *state* fields go stale once the GPU steps;
+    /// only params/edges are ever re-derived from it.
+    core: IqNetwork,
     device: wgpu::Device,
     queue: wgpu::Queue,
     propagate: wgpu::ComputePipeline,
     update: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
+    params_buf: wgpu::Buffer,
     state_buf: wgpu::Buffer,
+    edges_buf: wgpu::Buffer,
     readback_buf: wgpu::Buffer,
     num_neurons: usize,
     state_bytes: u64,
     workgroups: u32,
+    sync: Mutex<HostSync>,
 }
 
 fn acquire_device() -> Result<(wgpu::Device, wgpu::Queue), String> {
@@ -133,12 +156,16 @@ impl GpuNetwork {
     /// Build the CPU reference from text, then upload a bit-exact mirror to the
     /// GPU. Fallible because device acquisition can fail (no adapter, etc.).
     pub fn from_text(par: &str, con: &str) -> Result<Self, String> {
-        let core = IqNetwork::from_text(par, con);
-        Self::from_core(&core)
+        Self::build(IqNetwork::from_text(par, con))
     }
 
-    /// Upload an existing CPU network's setup + initial state to the GPU.
+    /// Upload a clone of an existing CPU network's setup + initial state.
     pub fn from_core(core: &IqNetwork) -> Result<Self, String> {
+        Self::build(core.clone())
+    }
+
+    /// Take ownership of a core and upload a bit-exact mirror to the GPU.
+    fn build(core: IqNetwork) -> Result<Self, String> {
         let num_neurons = core.num_neurons() as usize;
         if num_neurons == 0 {
             return Err("cannot build a GpuNetwork with zero neurons".into());
@@ -169,16 +196,21 @@ impl GpuNetwork {
 
         let (device, queue) = acquire_device()?;
 
+        // params/state/edges take COPY_DST so setters can patch them via
+        // queue.write_buffer (params/edges re-derived from core; state flushed
+        // from the host cache). state also needs COPY_SRC for readback.
         let params_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("iqif-params"),
             contents: bytemuck::cast_slice(&params),
-            usage: wgpu::BufferUsages::STORAGE,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
         let state_bytes = std::mem::size_of_val(state.as_slice()) as u64;
         let state_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("iqif-state"),
             contents: bytemuck::cast_slice(&state),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
         let offsets_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("iqif-csc-offsets"),
@@ -188,7 +220,7 @@ impl GpuNetwork {
         let edges_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("iqif-csc-edges"),
             contents: bytemuck::cast_slice(&edges),
-            usage: wgpu::BufferUsages::STORAGE,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
         let meta_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("iqif-meta"),
@@ -276,16 +308,21 @@ impl GpuNetwork {
         let update = make_pipeline("update_state");
 
         Ok(GpuNetwork {
+            core,
             device,
             queue,
             propagate,
             update,
             bind_group,
+            params_buf,
             state_buf,
+            edges_buf,
             readback_buf,
             num_neurons,
             state_bytes,
             workgroups: num_neurons.div_ceil(64) as u32,
+            // Cache starts coherent with the just-uploaded initial state.
+            sync: Mutex::new(HostSync { state, fresh: true, dirty: false }),
         })
     }
 
@@ -293,10 +330,22 @@ impl GpuNetwork {
         self.num_neurons as i32
     }
 
-    /// One timestep: `propagate` then `update_state`, as two compute passes so
-    /// the pass boundary orders the accumulator writes/reads and `is_firing`
-    /// handoff. State stays on the device — no readback here.
+    fn in_range(&self, i: i32) -> bool {
+        i >= 0 && (i as usize) < self.num_neurons
+    }
+
+    /// One timestep: flush any pending host writes, then `propagate` +
+    /// `update_state` as two compute passes (the pass boundary orders the
+    /// accumulator and `is_firing` handoff). State stays on the device; the
+    /// host cache is marked stale so the next read pulls fresh values.
     pub fn step(&self) {
+        {
+            let mut g = self.sync.lock().unwrap();
+            if g.dirty {
+                self.queue.write_buffer(&self.state_buf, 0, bytemuck::cast_slice(&g.state));
+                g.dirty = false;
+            }
+        }
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("iqif-step") });
@@ -310,6 +359,7 @@ impl GpuNetwork {
             pass.dispatch_workgroups(self.workgroups, 1, 1);
         }
         self.queue.submit(Some(encoder.finish()));
+        self.sync.lock().unwrap().fresh = false;
     }
 
     /// Run `steps` timesteps back-to-back, all on-device.
@@ -319,11 +369,14 @@ impl GpuNetwork {
         }
     }
 
-    /// Bulk-read the entire state buffer back to the host (one PCIe transfer).
-    fn read_state(&self) -> Vec<GpuState> {
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("iqif-readback") });
+    // ── host cache sync ──────────────────────────────────────────────────
+
+    /// Bulk-copy the state buffer to the host (one PCIe transfer). No locking;
+    /// callers hold the `sync` guard.
+    fn read_state_raw(&self) -> Vec<GpuState> {
+        let mut encoder = self.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: Some("iqif-readback") },
+        );
         encoder.copy_buffer_to_buffer(&self.state_buf, 0, &self.readback_buf, 0, self.state_bytes);
         self.queue.submit(Some(encoder.finish()));
 
@@ -339,24 +392,259 @@ impl GpuNetwork {
         out
     }
 
+    /// Read from the cache, refreshing it from the device first if stale.
+    fn read<R>(&self, f: impl FnOnce(&[GpuState]) -> R) -> R {
+        let mut g = self.sync.lock().unwrap();
+        if !g.fresh {
+            g.state = self.read_state_raw();
+            g.fresh = true;
+        }
+        f(&g.state)
+    }
+
+    /// Mutate the cache (refreshing first so untouched fields stay correct) and
+    /// mark it dirty for upload before the next step.
+    fn write<R>(&self, f: impl FnOnce(&mut [GpuState]) -> R) -> R {
+        let mut g = self.sync.lock().unwrap();
+        if !g.fresh {
+            g.state = self.read_state_raw();
+            g.fresh = true;
+        }
+        let r = f(&mut g.state);
+        g.dirty = true;
+        r
+    }
+
+    /// Re-derive the params buffer from the (authoritative) core and upload it.
+    fn reupload_params(&self) {
+        let snaps = self.core.neuron_snapshots();
+        let bias = self.core.biascurrents();
+        let params: Vec<GpuParams> =
+            snaps.iter().enumerate().map(|(i, s)| params_of(s, bias[i])).collect();
+        self.queue.write_buffer(&self.params_buf, 0, bytemuck::cast_slice(&params));
+    }
+
+    /// Re-derive the CSC edge buffer from the core and upload it. Edge *count*
+    /// is unchanged by weight edits, so the buffer size still matches.
+    fn reupload_edges(&self) {
+        let csc = self.core.build_csc();
+        let mut edges: Vec<GpuEdge> = csc
+            .sources
+            .iter()
+            .zip(csc.weights.iter())
+            .map(|(&source, &weight)| GpuEdge { source, weight })
+            .collect();
+        if edges.is_empty() {
+            edges.push(GpuEdge { source: 0, weight: 0 });
+        }
+        self.queue.write_buffer(&self.edges_buf, 0, bytemuck::cast_slice(&edges));
+    }
+
+    /// Re-initialize one neuron's GPU state from the core (used after
+    /// `set_neuron`, which resets `x`, accumulator, and timer).
+    fn reset_state_slot(&self, i: usize) {
+        let snap = self.core.neuron_snapshots()[i];
+        self.write(|s| s[i] = state_of(&snap));
+    }
+
+    // ── bulk state readback (whole-network) ──────────────────────────────
+
     /// Membrane potentials (`x`) for all neurons.
     pub fn potentials(&self) -> Vec<i32> {
-        self.read_state().iter().map(|s| s.x).collect()
+        self.read(|s| s.iter().map(|e| e.x).collect())
     }
 
     /// Synapse current accumulators for all neurons.
     pub fn accumulators(&self) -> Vec<i32> {
-        self.read_state().iter().map(|s| s.accumulator).collect()
+        self.read(|s| s.iter().map(|e| e.accumulator).collect())
     }
 
     /// `is_firing` (1/0) for all neurons.
     pub fn is_firing(&self) -> Vec<i32> {
-        self.read_state().iter().map(|s| s.is_firing).collect()
+        self.read(|s| s.iter().map(|e| e.is_firing).collect())
     }
 
-    /// Running spike counts for all neurons (not reset by this read).
-    pub fn spike_counts(&self) -> Vec<i32> {
-        self.read_state().iter().map(|s| s.spike_count).collect()
+    // ── per-neuron state getters/setters (cache-backed) ──────────────────
+
+    pub fn potential(&self, i: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.read(|s| s[i as usize].x)
+    }
+
+    pub fn set_potential(&self, i: i32, v: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.write(|s| s[i as usize].x = v);
+        1
+    }
+
+    pub fn get_current_accumulator(&self, i: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.read(|s| s[i as usize].accumulator)
+    }
+
+    pub fn set_current_accumulator(&self, i: i32, v: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.write(|s| s[i as usize].accumulator = v);
+        1
+    }
+
+    pub fn get_all_current_accumulators(&self) -> Vec<i32> {
+        self.read(|s| s.iter().map(|e| e.accumulator).collect())
+    }
+
+    pub fn set_all_current_accumulators(&self, values: &[i32]) {
+        self.write(|s| {
+            for (e, &v) in s.iter_mut().zip(values.iter()) {
+                e.accumulator = v;
+            }
+        });
+    }
+
+    pub fn get_is_firing(&self, i: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.read(|s| s[i as usize].is_firing)
+    }
+
+    pub fn set_is_firing(&self, i: i32, v: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.write(|s| s[i as usize].is_firing = (v != 0) as i32);
+        1
+    }
+
+    pub fn get_synapse_timer(&self, i: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.read(|s| s[i as usize].timer)
+    }
+
+    pub fn set_synapse_timer(&self, i: i32, v: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.write(|s| s[i as usize].timer = v);
+        1
+    }
+
+    /// Read-and-clear one neuron's spike counter (matches the C++ getter).
+    pub fn spike_count(&self, i: i32) -> i32 {
+        if !self.in_range(i) {
+            return 0;
+        }
+        self.write(|s| {
+            let c = s[i as usize].spike_count;
+            s[i as usize].spike_count = 0;
+            c
+        })
+    }
+
+    /// Read-and-clear every neuron's spike counter (bulk; one round-trip).
+    pub fn get_all_spike_counts(&self) -> Vec<i32> {
+        self.write(|s| {
+            s.iter_mut()
+                .map(|e| {
+                    let c = e.spike_count;
+                    e.spike_count = 0;
+                    c
+                })
+                .collect()
+        })
+    }
+
+    /// Spike rate since the last call; resets the window (matches C++).
+    pub fn spike_rate(&self, i: i32) -> f32 {
+        if !self.in_range(i) {
+            return 0.0;
+        }
+        self.write(|s| {
+            let e = &mut s[i as usize];
+            let denom = if e.t_neuron != 0 { e.t_neuron } else { 1 };
+            let r = e.spike_count as f32 / denom as f32;
+            e.t_neuron = 0;
+            e.spike_count = 0;
+            r
+        })
+    }
+
+    // ── params getters (from the core; constant w.r.t. stepping) ─────────
+
+    pub fn get_decay_threshold(&self, i: i32) -> i32 {
+        self.core.get_decay_threshold(i)
+    }
+
+    pub fn get_surrogate_tau(&self, i: i32) -> i32 {
+        self.core.get_surrogate_tau(i)
+    }
+
+    // ── setup mutators: apply to core, re-derive + re-upload buffers ──────
+
+    pub fn set_biascurrent(&mut self, i: i32, v: i32) -> i32 {
+        let r = self.core.set_biascurrent(i, v);
+        if r == 1 {
+            self.reupload_params();
+        }
+        r
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_neuron(&mut self, i: i32, rest: i32, threshold: i32, reset: i32, a: i32, b: i32, noise: i32) -> i32 {
+        let r = self.core.set_neuron(i, rest, threshold, reset, a, b, noise);
+        if r == 1 {
+            self.reupload_params();
+            self.reset_state_slot(i as usize); // set() re-inits x/accumulator/timer
+        }
+        r
+    }
+
+    pub fn set_weight(&mut self, pre: i32, post: i32, weight: i32, tau: i32) -> i32 {
+        let r = self.core.set_weight(pre, post, weight, tau);
+        if r == 1 {
+            self.reupload_params(); // tau change -> timer_threshold/decay_shift_k
+            self.reupload_edges(); // weight change -> CSC edge
+        }
+        r
+    }
+
+    pub fn set_surrogate_tau_all(&mut self, s_tau: i32) -> i32 {
+        let r = self.core.set_surrogate_tau_all(s_tau);
+        self.reupload_params();
+        r
+    }
+
+    pub fn set_surrogate_tau_one(&mut self, i: i32, s_tau: i32) -> i32 {
+        let r = self.core.set_surrogate_tau_one(i, s_tau);
+        if r == 1 {
+            self.reupload_params();
+        }
+        r
+    }
+
+    pub fn set_vmax(&mut self, i: i32, v: i32) -> i32 {
+        let r = self.core.set_vmax(i, v); // core: 0 ok, 1 oob
+        if r == 0 {
+            self.reupload_params();
+        }
+        r
+    }
+
+    pub fn set_vmin(&mut self, i: i32, v: i32) -> i32 {
+        let r = self.core.set_vmin(i, v); // core: 0 ok, 1 oob
+        if r == 0 {
+            self.reupload_params();
+        }
+        r
     }
 }
 
