@@ -140,8 +140,14 @@ reference, 46367 step-by-step integer checks). Extend it to also run
       run on-device per backend. **Found NVIDIA Vulkan/GL break signed `%`;**
       adopted `rem = a-(a/b)*b` as the portable rule (see finding above). RADV
       re-run still pending.
-- [ ] **Phase 3** — Build CSC (transposed adjacency) in `iqif_core`; upload
-      buffers; `propagate` + `update_state` WGSL kernels; state stays on-device.
+- [x] **Phase 3** — `iqif_core::build_csc` + `NeuronSnapshot` export; `GpuNetwork`
+      uploads a bit-exact mirror; `propagate` (CSC gather) + `update_state` WGSL
+      kernels run as two passes/step with state resident on-device. Validated
+      bit-exact vs the CPU core over 200 steps with firing/propagation and 500
+      steps of the `noise>1` LCG path (`gpu_parity_tests.rs`). Note: WGSL `+`
+      wraps mod 2^32 while the *debug* CPU core panics on overflow — they agree
+      only while in range, so keep dynamics bounded (a release CPU build wraps
+      and matches). Backend wiring for per-neuron getters is still Phase 4.
 - [ ] **Phase 4** — Bulk readback API; wire GPU arm into `Backend`; extend the
       parity test to `device="gpu"`.
 - [ ] **Phase 5** — Benchmark at connectome scale; tune workgroup sizing.

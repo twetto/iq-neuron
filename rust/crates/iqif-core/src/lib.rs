@@ -273,6 +273,78 @@ impl IqNeuron {
         self.spike_count = 0;
         r
     }
+
+    /// Internal LCG state, exposed so an alternate backend can carry forward
+    /// the exact same noise stream. Only advances when `noise > 1`.
+    pub fn rng_state(&self) -> u32 {
+        self.rng.0
+    }
+
+    /// Flat copy of every field a GPU backend needs to reproduce this neuron's
+    /// dynamics bit-for-bit. Plain data, no behavior — the GPU crate packs it
+    /// into its own buffer layout. `is_firing` is 1/0; raw `spike_count` is the
+    /// running count (not the side-effecting reset getter).
+    pub fn snapshot(&self) -> NeuronSnapshot {
+        NeuronSnapshot {
+            rest: self.rest,
+            threshold: self.threshold,
+            shift_a: self.shift_a,
+            shift_b: self.shift_b,
+            reset: self.reset,
+            noise: self.noise,
+            f_min: self.f_min,
+            vmax: self.vmax,
+            vmin: self.vmin,
+            timer_threshold: self.synapse.timer_threshold,
+            decay_shift_k: self.synapse.decay_shift_k,
+            x: self.x,
+            accumulator: self.synapse.current_accumulator,
+            timer: self.synapse.timer,
+            is_firing: self.is_firing as i32,
+            spike_count: self.spike_count,
+            t_neuron: self.t_neuron,
+            rng_state: self.rng.0,
+        }
+    }
+}
+
+/// Plain-data view of an [`IqNeuron`], the bridge to a non-CPU backend. Splits
+/// naturally into setup params (constant after `set`) and mutable per-step
+/// state, but is kept as one flat struct so the source of truth stays here.
+#[derive(Clone, Copy, Debug)]
+pub struct NeuronSnapshot {
+    // Setup params (constant during a run).
+    pub rest: i32,
+    pub threshold: i32,
+    pub shift_a: i32,
+    pub shift_b: i32,
+    pub reset: i32,
+    pub noise: i32,
+    pub f_min: i32,
+    pub vmax: i32,
+    pub vmin: i32,
+    pub timer_threshold: i32,
+    pub decay_shift_k: i32,
+    // Mutable per-step state.
+    pub x: i32,
+    pub accumulator: i32,
+    pub timer: i32,
+    pub is_firing: i32,
+    pub spike_count: i32,
+    pub t_neuron: i32,
+    pub rng_state: u32,
+}
+
+/// Transposed (CSC) adjacency: incoming edges grouped by *post*-synaptic
+/// neuron. `offsets` has `num_neurons + 1` entries; for post `j`, the slice
+/// `sources[offsets[j]..offsets[j+1]]` (with matching `weights`) lists the
+/// presynaptic neuron and weight of each incoming edge. This is the gather dual
+/// of the CSR scatter used by [`IqNetwork::send_synapse`].
+#[derive(Clone, Debug)]
+pub struct Csc {
+    pub offsets: Vec<i32>,
+    pub sources: Vec<i32>,
+    pub weights: Vec<i32>,
 }
 
 /// IQIF network with CSR-stored synapses. Mirror of the C++ `iq_network`.
@@ -373,6 +445,53 @@ impl IqNetwork {
 
     pub fn num_neurons(&self) -> i32 {
         self.num_neurons as i32
+    }
+
+    /// Per-neuron flat snapshots, index == neuron id. The bridge a GPU backend
+    /// uploads from (single source of truth for setup + initial state).
+    pub fn neuron_snapshots(&self) -> Vec<NeuronSnapshot> {
+        self.neurons.iter().map(|n| n.snapshot()).collect()
+    }
+
+    /// Per-neuron bias current, index == neuron id.
+    pub fn biascurrents(&self) -> &[i32] {
+        &self.biascurrent
+    }
+
+    /// Transpose the CSR adjacency into CSC (group incoming edges by post). The
+    /// GPU `propagate` kernel gathers over this instead of scattering over CSR,
+    /// so spike propagation is race-free and order-independent. Within a post
+    /// group, edge order is irrelevant — propagation only sums weights.
+    pub fn build_csc(&self) -> Csc {
+        let n = self.num_neurons;
+        let m = self.csr_targets.len();
+
+        // Count incoming edges per post neuron, then prefix-sum to offsets.
+        let mut offsets = vec![0i32; n + 1];
+        for &post in &self.csr_targets {
+            offsets[post as usize + 1] += 1;
+        }
+        for j in 0..n {
+            offsets[j + 1] += offsets[j];
+        }
+
+        // Scatter each CSR edge (pre -> post, weight) into its post bucket.
+        let mut sources = vec![0i32; m];
+        let mut weights = vec![0i32; m];
+        let mut cursor: Vec<i32> = offsets[..n].to_vec();
+        for pre in 0..n {
+            let start = self.csr_offsets[pre] as usize;
+            let end = self.csr_offsets[pre + 1] as usize;
+            for k in start..end {
+                let post = self.csr_targets[k] as usize;
+                let slot = cursor[post] as usize;
+                sources[slot] = pre as i32;
+                weights[slot] = self.csr_weights[k];
+                cursor[post] += 1;
+            }
+        }
+
+        Csc { offsets, sources, weights }
     }
 
     fn in_range(&self, i: i32) -> bool {
@@ -593,6 +712,28 @@ mod tests {
         // Subsequent steps decay by acc>>3 each time.
         s.step();
         assert_eq!(s.current_accumulator, 200 - (200 >> 3));
+    }
+
+    #[test]
+    fn csc_is_the_transpose_of_csr() {
+        // 3 neurons; edges 0->1, 0->2, 2->1 (weights 10, 20, 30).
+        let par = "0 128 255 128 8 8 0\n1 128 255 128 8 8 0\n2 128 255 128 8 8 0\n";
+        let con = "0 1 10 8\n0 2 20 8\n2 1 30 8\n";
+        let net = IqNetwork::from_text(par, con);
+        let csc = net.build_csc();
+
+        // Collect (source, weight) incoming to each post, order-independent.
+        let incoming = |post: usize| {
+            let mut v: Vec<(i32, i32)> = (csc.offsets[post]..csc.offsets[post + 1])
+                .map(|k| (csc.sources[k as usize], csc.weights[k as usize]))
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(incoming(0), vec![]); // nothing targets neuron 0
+        assert_eq!(incoming(1), vec![(0, 10), (2, 30)]);
+        assert_eq!(incoming(2), vec![(0, 20)]);
+        assert_eq!(csc.offsets, vec![0, 0, 2, 3]);
     }
 
     #[test]

@@ -112,7 +112,9 @@ impl Backend for iqif_gpu::GpuNetwork {
 
 #[cfg(feature = "gpu")]
 fn make_gpu(par: &str, con: &str) -> PyResult<Box<dyn Backend + Send + Sync>> {
-    Ok(Box::new(iqif_gpu::GpuNetwork::from_text(par, con)))
+    let net = iqif_gpu::GpuNetwork::from_text(par, con)
+        .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
+    Ok(Box::new(net))
 }
 
 #[cfg(not(feature = "gpu"))]
