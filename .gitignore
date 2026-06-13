@@ -41,5 +41,9 @@ utils/
 # OS
 .DS_Store
 
+# Docs / design notes live in the ECHO-LI-notes repo
+docs/
+
 # Others
 continue.sh
+temp/
