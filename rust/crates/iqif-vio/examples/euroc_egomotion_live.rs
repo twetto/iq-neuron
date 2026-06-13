@@ -1,10 +1,13 @@
 //! Live EuRoC stereo egomotion via predictive coding, with real-time minifb
-//! visualization.
+//! visualization and faded ground-truth overlay.
 //!
 //! Left panel: cam0 with tracked features colored by sparse stereo depth
 //! (jet: near = red, far = blue; unmatched = red cross).
 //! Right panel: six scrolling line charts of the recovered 6-DoF motion,
-//! top to bottom: v1 v2 v3 (m/s), w1 w2 w3 (rad/s).
+//! top to bottom v1 v2 v3 (m/s), w1 w2 w3 (rad/s). The bright line is the
+//! IQIF-PC estimate; the faded line is ground truth rotated into the camera
+//! frame (GT world velocity via the body orientation + T_BS extrinsic; GT
+//! angular rate from the orientation finite-difference).
 //!
 //! Usage:
 //!     cargo run -p iqif-vio --example euroc_egomotion_live --release -- /path/to/V1_01_easy [num_frames]
@@ -22,6 +25,7 @@ use rudolf_v::klt::LkMethod;
 use rudolf_v::stereo::{StereoConfig, StereoMatch, StereoMatcher};
 
 use minifb::{Key, Window, WindowOptions};
+use nalgebra::{Matrix3, Quaternion, Rotation3, UnitQuaternion, Vector3};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 
@@ -31,11 +35,13 @@ const PLOT_WINDOW: usize = 300; // frames shown in the scrolling charts
 const NEAR_M: f64 = 0.5;
 const FAR_M: f64 = 8.0;
 
-const DOF_LABELS: [&str; 6] = ["v1", "v2", "v3", "w1", "w2", "w3"];
 const DOF_COLORS: [u32; 6] = [
     0xFFE6194B, 0xFF3CB44B, 0xFF4363D8, // v1 v2 v3 (red green blue)
     0xFF42D4F4, 0xFFF032E6, 0xFFFFE119, // w1 w2 w3 (cyan magenta yellow)
 ];
+
+/// One chart sample: the estimate and (optionally) frame-aligned ground truth.
+type Sample = ([f64; 6], Option<[f64; 6]>);
 
 fn load_grayscale(path: &Path) -> Image<u8> {
     let img = image::open(path)
@@ -62,6 +68,66 @@ fn ts_ns(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
+/// Ground truth: (ts_ns, world velocity, quaternion [qw,qx,qy,qz] = R_world_body).
+fn load_gt(path: &Path) -> Vec<(u64, [f64; 3], [f64; 4])> {
+    let mut out = Vec::new();
+    let Ok(txt) = std::fs::read_to_string(path) else {
+        return out;
+    };
+    for line in txt.lines() {
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        let c: Vec<&str> = line.split(',').collect();
+        if c.len() < 11 {
+            continue;
+        }
+        let p = |i: usize| c[i].trim().parse::<f64>().ok();
+        if let (Ok(ts), Some(qw), Some(qx), Some(qy), Some(qz), Some(vx), Some(vy), Some(vz)) = (
+            c[0].trim().parse::<u64>(),
+            p(4),
+            p(5),
+            p(6),
+            p(7),
+            p(8),
+            p(9),
+            p(10),
+        ) {
+            out.push((ts, [vx, vy, vz], [qw, qx, qy, qz]));
+        }
+    }
+    out
+}
+
+fn nearest_gt(gt: &[(u64, [f64; 3], [f64; 4])], ts: u64) -> Option<usize> {
+    if gt.is_empty() {
+        return None;
+    }
+    let idx = gt.partition_point(|&(t, _, _)| t < ts);
+    let mut best = idx.min(gt.len() - 1);
+    if idx > 0
+        && (ts as i128 - gt[idx - 1].0 as i128).abs() < (gt[best].0 as i128 - ts as i128).abs()
+    {
+        best = idx - 1;
+    }
+    Some(best)
+}
+
+/// Body<-camera rotation R_bs from the cam0 `sensor.yaml` `T_BS` 4x4 (row-major).
+fn parse_r_bs(sensor_yaml: &Path) -> Matrix3<f64> {
+    let txt = std::fs::read_to_string(sensor_yaml).expect("read sensor.yaml");
+    let after = &txt[txt.find("T_BS:").expect("T_BS in sensor.yaml")..];
+    let block = &after[after.find("data:").expect("T_BS data")..];
+    let lb = block.find('[').unwrap();
+    let rb = block.find(']').unwrap();
+    let n: Vec<f64> = block[lb + 1..rb]
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+    // Rotation = top-left 3x3 of the row-major 4x4.
+    Matrix3::new(n[0], n[1], n[2], n[4], n[5], n[6], n[8], n[9], n[10])
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
@@ -81,16 +147,19 @@ fn main() {
         .expect("load stereo rig from EuRoC sensor.yaml");
     let cam = CameraIntrinsics::from_euroc_yaml(&cam0_dir.join("sensor.yaml"))
         .expect("load cam0 intrinsics");
+    let r_bs = parse_r_bs(&cam0_dir.join("sensor.yaml"));
     let (w, h) = (rig.cam0.resolution[0], rig.cam0.resolution[1]);
 
     let cam0_files = list_pngs(&cam0_dir);
     let cam1_files = list_pngs(&cam1_dir);
     let num_frames = cam0_files.len().min(cam1_files.len()).min(max_frames);
+    let gt = load_gt(&data_dir.join("mav0/state_groundtruth_estimate0/data.csv"));
     println!(
-        "Live egomotion: {num_frames} frames, {w}x{h}, baseline {:.4} m",
-        rig.baseline_meters()
+        "Live egomotion: {num_frames} frames, {w}x{h}, baseline {:.4} m, gt samples {}",
+        rig.baseline_meters(),
+        gt.len()
     );
-    println!("Charts top->bottom: v1 v2 v3 (m/s), w1 w2 w3 (rad/s). Q/Esc quit, Space pause.");
+    println!("Charts top->bottom: v1 v2 v3 (m/s), w1 w2 w3 (rad/s). Bright=estimate, faded=GT. Q/Esc quit, Space pause.");
 
     let frontend_config = FrontendConfig {
         detector: DetectorType::Fast,
@@ -119,7 +188,8 @@ fn main() {
     let mut adapter = FlowDepthAdapter::new();
     let g_init = [0.0_f64; 6];
     let mut prev_ts: Option<u64> = None;
-    let mut history: VecDeque<[f64; 6]> = VecDeque::with_capacity(PLOT_WINDOW);
+    let mut prev_gt: Option<(u64, Matrix3<f64>)> = None; // (ts, R_world_body) for GT angular rate
+    let mut history: VecDeque<Sample> = VecDeque::with_capacity(PLOT_WINDOW);
 
     let win_w = w + GAP + CHART_W;
     let win_h = h;
@@ -158,13 +228,37 @@ fn main() {
 
             if obs.len() >= 8 && dt > 0.0 {
                 let m = solve_egomotion(&obs, &g_init);
+
+                // Frame-aligned ground truth (camera frame), if available.
+                let gt_cam = nearest_gt(&gt, ts).map(|k| {
+                    let q = gt[k].2;
+                    let r_wb =
+                        *UnitQuaternion::from_quaternion(Quaternion::new(q[0], q[1], q[2], q[3]))
+                            .to_rotation_matrix()
+                            .matrix();
+                    let v_w = Vector3::new(gt[k].1[0], gt[k].1[1], gt[k].1[2]);
+                    let v_cam = r_bs.transpose() * (r_wb.transpose() * v_w); // body vel -> cam frame
+                    let w_cam = match prev_gt {
+                        Some((pt, r_prev)) if ts > pt => {
+                            let dtg = (ts - pt) as f64 * 1e-9;
+                            let w_body =
+                                Rotation3::from_matrix_unchecked(r_prev.transpose() * r_wb)
+                                    .scaled_axis()
+                                    / dtg;
+                            r_bs.transpose() * w_body
+                        }
+                        _ => Vector3::zeros(),
+                    };
+                    prev_gt = Some((ts, r_wb));
+                    [v_cam[0], v_cam[1], v_cam[2], w_cam[0], w_cam[1], w_cam[2]]
+                });
+
                 if history.len() == PLOT_WINDOW {
                     history.pop_front();
                 }
-                history.push_back(m);
+                history.push_back((m, gt_cam));
             }
 
-            // Render: clear, camera panel, depth-colored features, charts.
             fb.fill(0xFF1A1A1A);
             let disp = frontend.preprocessed_image().unwrap_or(&f0);
             render_camera(&mut fb, win_w, win_h, disp, &feats, &matches);
@@ -178,7 +272,7 @@ fn main() {
             .expect("window update failed");
 
         if i >= num_frames && !paused {
-            paused = true; // hold the final frame on screen until quit
+            paused = true; // hold the final frame until quit
         }
     }
 }
@@ -217,66 +311,78 @@ fn render_camera(
     }
 }
 
-// ── 6-DoF scrolling line charts ──────────────────────────────────────────────
+// ── 6-DoF scrolling line charts (estimate + faded GT) ────────────────────────
 
 fn render_charts(
     fb: &mut [u32],
     win_w: usize,
     win_h: usize,
     x0: usize,
-    history: &VecDeque<[f64; 6]>,
+    history: &VecDeque<Sample>,
 ) {
     let rows = 6;
     let row_h = win_h / rows;
     let pw = CHART_W.saturating_sub(2 * GAP);
-    let vals: Vec<[f64; 6]> = history.iter().copied().collect();
+    let samples: Vec<Sample> = history.iter().copied().collect();
+    let n = samples.len();
 
     for d in 0..rows {
         let py0 = d * row_h + 2;
         let ph = row_h.saturating_sub(4);
         let px0 = x0 + GAP;
 
-        // Panel background + border.
         fill_rect(fb, win_w, win_h, px0, py0, pw, ph, 0xFF101010);
         draw_rect(fb, win_w, win_h, px0, py0, pw, ph, 0xFF404040);
 
-        // Per-DoF symmetric autoscale (floor avoids a flat line dominating).
-        let m = vals
-            .iter()
-            .map(|v| v[d].abs())
-            .fold(0.0_f64, f64::max)
-            .max(if d < 3 { 0.05 } else { 0.05 });
+        // Symmetric autoscale over BOTH estimate and GT so both fit.
+        let mut m = 0.05_f64;
+        for s in &samples {
+            m = m.max(s.0[d].abs());
+            if let Some(g) = s.1 {
+                m = m.max(g[d].abs());
+            }
+        }
 
-        // Zero axis.
         let yz = (py0 + ph / 2) as i32;
         draw_hline(fb, win_w, win_h, px0, px0 + pw, yz, 0xFF303030);
-
-        // Label tag (a short colored bar; text-free framebuffer).
         for t in 0..6usize {
             fill_rect(fb, win_w, win_h, px0 + 3, py0 + 3 + t, 8, 1, DOF_COLORS[d]);
         }
-        let _ = DOF_LABELS;
 
-        if vals.len() >= 2 {
-            let map_y = |v: f64| -> i32 {
-                let half = (ph / 2).saturating_sub(2) as f64;
-                (py0 + ph / 2) as i32 - ((v / m) * half).round() as i32
-            };
-            let n = vals.len();
-            for k in 1..n {
-                let xa = px0 + (k - 1) * (pw - 1) / (n - 1);
-                let xb = px0 + k * (pw - 1) / (n - 1);
+        if n < 2 {
+            continue;
+        }
+        let half = (ph / 2).saturating_sub(2) as f64;
+        let map_y = |v: f64| (py0 + ph / 2) as i32 - ((v / m) * half).round() as i32;
+        let xat = |k: usize| (px0 + k * (pw - 1) / (n - 1)) as i32;
+
+        // GT first (faded), behind the estimate.
+        for k in 1..n {
+            if let (Some(a), Some(b)) = (samples[k - 1].1, samples[k].1) {
                 draw_line(
                     fb,
                     win_w,
                     win_h,
-                    xa as i32,
-                    map_y(vals[k - 1][d]),
-                    xb as i32,
-                    map_y(vals[k][d]),
-                    DOF_COLORS[d],
+                    xat(k - 1),
+                    map_y(a[d]),
+                    xat(k),
+                    map_y(b[d]),
+                    fade(DOF_COLORS[d], 0.40),
                 );
             }
+        }
+        // Estimate on top (full color).
+        for k in 1..n {
+            draw_line(
+                fb,
+                win_w,
+                win_h,
+                xat(k - 1),
+                map_y(samples[k - 1].0[d]),
+                xat(k),
+                map_y(samples[k].0[d]),
+                DOF_COLORS[d],
+            );
         }
     }
 }
@@ -379,6 +485,16 @@ fn draw_cross(fb: &mut [u32], win_w: usize, win_h: usize, cx: i32, cy: i32, r: i
         set_px(fb, win_w, win_h, cx + d, cy + d, c);
         set_px(fb, win_w, win_h, cx + d, cy - d, c);
     }
+}
+
+/// Blend `c` toward the dark background. `t=1` keeps `c`, `t=0` is background.
+fn fade(c: u32, t: f64) -> u32 {
+    let bg = 26.0_f64; // 0x1A background channel value
+    let ch = |sh: u32| {
+        let v = ((c >> sh) & 0xFF) as f64;
+        (bg + (v - bg) * t).round().clamp(0.0, 255.0) as u32
+    };
+    0xFF000000 | (ch(16) << 16) | (ch(8) << 8) | ch(0)
 }
 
 fn color_for_depth(depth_m: f64) -> u32 {

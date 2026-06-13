@@ -1,13 +1,14 @@
-//! EuRoC stereo egomotion via predictive coding.
+//! EuRoC stereo egomotion via predictive coding (headless + CSV log).
 //!
 //! Per frame: run the Rudolf-V CPU frontend on cam0 (FAST detect + KLT track),
 //! match each track into cam1 for sparse stereo depth, turn the tracks + depth
 //! into known-depth flow observations, and solve the 6-DoF egomotion with the
-//! IQIF predictive-coding circuit. Estimated linear-speed magnitude is compared
-//! against the EuRoC ground-truth velocity as a sanity check.
+//! IQIF predictive-coding circuit. Logs the estimate together with the raw
+//! ground-truth velocity + orientation quaternion to a CSV so the Python
+//! `tests/plot_egomotion.py` can align frames and plot est-vs-GT.
 //!
 //! Usage:
-//!     cargo run -p iqif-vio --example euroc_egomotion --release -- /path/to/V1_01_easy [num_frames]
+//!     cargo run -p iqif-vio --example euroc_egomotion --release -- /path/to/V1_01_easy [num_frames] [out.csv]
 
 use iqif_vio::frontend_adapter::FlowDepthAdapter;
 use iqif_vio::solve_egomotion;
@@ -19,6 +20,7 @@ use rudolf_v::image::Image;
 use rudolf_v::klt::LkMethod;
 use rudolf_v::stereo::{StereoConfig, StereoMatcher};
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -48,9 +50,9 @@ fn ts_ns(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
-/// Load ground-truth (timestamp_ns, speed |v| m/s) from
-/// `mav0/state_groundtruth_estimate0/data.csv` (cols 0 and 8..11). Empty if absent.
-fn load_gt_speed(path: &Path) -> Vec<(u64, f64)> {
+/// Ground-truth rows: (timestamp_ns, world-frame velocity [vx,vy,vz],
+/// orientation quaternion [qw,qx,qy,qz] = R_world_body). Empty if file absent.
+fn load_gt(path: &Path) -> Vec<(u64, [f64; 3], [f64; 4])> {
     let mut out = Vec::new();
     let Ok(txt) = std::fs::read_to_string(path) else {
         return out;
@@ -63,24 +65,29 @@ fn load_gt_speed(path: &Path) -> Vec<(u64, f64)> {
         if c.len() < 11 {
             continue;
         }
-        if let (Ok(ts), Ok(vx), Ok(vy), Ok(vz)) = (
+        let p = |i: usize| c[i].trim().parse::<f64>().ok();
+        if let (Ok(ts), Some(qw), Some(qx), Some(qy), Some(qz), Some(vx), Some(vy), Some(vz)) = (
             c[0].trim().parse::<u64>(),
-            c[8].trim().parse::<f64>(),
-            c[9].trim().parse::<f64>(),
-            c[10].trim().parse::<f64>(),
+            p(4),
+            p(5),
+            p(6),
+            p(7),
+            p(8),
+            p(9),
+            p(10),
         ) {
-            out.push((ts, (vx * vx + vy * vy + vz * vz).sqrt()));
+            out.push((ts, [vx, vy, vz], [qw, qx, qy, qz]));
         }
     }
     out
 }
 
-/// Nearest-timestamp ground-truth speed (assumes `gt` sorted by timestamp).
-fn nearest_gt_speed(gt: &[(u64, f64)], ts: u64) -> Option<f64> {
+/// Index of the nearest-timestamp ground-truth row (assumes sorted).
+fn nearest_gt(gt: &[(u64, [f64; 3], [f64; 4])], ts: u64) -> Option<usize> {
     if gt.is_empty() {
         return None;
     }
-    let idx = gt.partition_point(|&(t, _)| t < ts);
+    let idx = gt.partition_point(|&(t, _, _)| t < ts);
     let mut best = idx.min(gt.len() - 1);
     if idx > 0 {
         let d_prev = (ts as i128 - gt[idx - 1].0 as i128).abs();
@@ -89,17 +96,21 @@ fn nearest_gt_speed(gt: &[(u64, f64)], ts: u64) -> Option<f64> {
             best = idx - 1;
         }
     }
-    Some(gt[best].1)
+    Some(best)
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: euroc_egomotion <euroc_dataset_path> [num_frames]");
+        eprintln!("Usage: euroc_egomotion <euroc_dataset_path> [num_frames] [out.csv]");
         std::process::exit(1);
     }
     let data_dir = PathBuf::from(&args[1]);
     let max_frames: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100);
+    let csv_path = args
+        .get(3)
+        .cloned()
+        .unwrap_or_else(|| "egomotion_log.csv".to_string());
 
     let cam0_dir = data_dir.join("mav0/cam0");
     let cam1_dir = data_dir.join("mav0/cam1");
@@ -121,7 +132,7 @@ fn main() {
     let num_frames = cam0_files.len().min(cam1_files.len()).min(max_frames);
     let (w, h) = (rig.cam0.resolution[0], rig.cam0.resolution[1]);
 
-    let gt = load_gt_speed(&data_dir.join("mav0/state_groundtruth_estimate0/data.csv"));
+    let gt = load_gt(&data_dir.join("mav0/state_groundtruth_estimate0/data.csv"));
     println!(
         "Frames: {num_frames}, resolution {w}x{h}, ground-truth samples: {}\n",
         gt.len()
@@ -158,6 +169,15 @@ fn main() {
     let mut sum_abs_err = 0.0;
     let mut n_scored = 0usize;
 
+    let mut csv = std::io::BufWriter::new(
+        std::fs::File::create(&csv_path).unwrap_or_else(|e| panic!("create {csv_path}: {e}")),
+    );
+    writeln!(
+        csv,
+        "frame,ts_ns,vx,vy,vz,wx,wy,wz,gt_vx,gt_vy,gt_vz,qw,qx,qy,qz"
+    )
+    .unwrap();
+
     println!("frame  n_obs   v_est (m/s)               |v_est|   |v_gt|   |w_est|   solve_ms");
     for i in 0..num_frames {
         let f0 = load_grayscale(&cam0_files[i]);
@@ -183,12 +203,27 @@ fn main() {
         let v = [m[0], m[1], m[2]];
         let speed = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
         let wn = (m[3] * m[3] + m[4] * m[4] + m[5] * m[5]).sqrt();
-        let gt_speed = nearest_gt_speed(&gt, ts);
 
+        let gt_idx = nearest_gt(&gt, ts);
+        let gt_speed = gt_idx.map(|k| {
+            let g = gt[k].1;
+            (g[0] * g[0] + g[1] * g[1] + g[2] * g[2]).sqrt()
+        });
         if let Some(g) = gt_speed {
             sum_abs_err += (speed - g).abs();
             n_scored += 1;
         }
+
+        // CSV: estimate (camera frame) + raw GT world-velocity + orientation,
+        // so the Python plotter can align frames and overlay ground truth.
+        let (gv, q) = gt_idx.map_or(([f64::NAN; 3], [f64::NAN; 4]), |k| (gt[k].1, gt[k].2));
+        writeln!(
+            csv,
+            "{i},{ts},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}",
+            v[0], v[1], v[2], m[3], m[4], m[5], gv[0], gv[1], gv[2], q[0], q[1], q[2], q[3]
+        )
+        .unwrap();
+
         let gt_str = gt_speed.map_or("   n/a".to_string(), |g| format!("{g:6.3}"));
         println!(
             "{i:5}  {:5}  [{:6.3} {:6.3} {:6.3}]   {speed:6.3}   {gt_str}   {wn:6.3}   {solve_ms:6.1}",
@@ -199,13 +234,17 @@ fn main() {
         );
     }
 
+    csv.flush().unwrap();
+    println!("\nWrote per-frame log to {csv_path}");
     if n_scored > 0 {
         println!(
-            "\nMean |speed_est - speed_gt| over {n_scored} frames: {:.3} m/s",
+            "Mean |speed_est - speed_gt| over {n_scored} frames: {:.3} m/s",
             sum_abs_err / n_scored as f64
         );
-        println!(
-            "(camera-frame estimate vs body world-frame GT magnitude — a coarse sanity check;\n full direction/ATE evaluation needs the body<-cam extrinsic alignment.)"
-        );
     }
+    println!("Plot est-vs-GT (6-DoF, frame-aligned):");
+    println!(
+        "  python tests/plot_egomotion.py {csv_path} {}",
+        cam0_dir.join("sensor.yaml").display()
+    );
 }
