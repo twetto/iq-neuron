@@ -13,3 +13,7 @@ iqif-core = { path = "../iqif-core" }
 rudolf-v = { git = "https://github.com/twetto/Rudolf-V.git", rev = "9e8ad8ccbb4d0e601ccb76c22ce9a6eb00b46e10" }
 # Linear algebra for QR whitening / decode (same version Rudolf-V uses).
 nalgebra = "0.33"
+
+[dev-dependencies]
+# Image I/O for the EuRoC example (loading dataset PNGs).
+image = "0.25"

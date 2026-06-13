@@ -19,7 +19,6 @@
 
 use iqif_core::IqNetwork;
 use nalgebra::{DMatrix, DVector};
-use rudolf_v as _; // wired for the upcoming frontend adapter
 
 // ── 8-bit circuit constants (mirror the Python reference) ───────────────────
 const VMAX: i32 = 255;
@@ -221,6 +220,72 @@ pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 
     [m[0], m[1], m[2], m[3], m[4], m[5]]
 }
 
+/// Adapter: turn Rudolf-V frontend tracks + sparse stereo depth into the
+/// [`FeatureObs`] the solver consumes. Holds the previous frame's normalized
+/// feature positions (keyed by persistent track id) so it can form per-feature
+/// optical flow.
+pub mod frontend_adapter {
+    use super::FeatureObs;
+    use rudolf_v::camera::CameraIntrinsics;
+    use rudolf_v::fast::Feature;
+    use rudolf_v::stereo::StereoMatch;
+    use std::collections::HashMap;
+
+    #[derive(Default)]
+    pub struct FlowDepthAdapter {
+        prev_norm: HashMap<u64, (f64, f64)>,
+    }
+
+    impl FlowDepthAdapter {
+        pub fn new() -> Self {
+            Self {
+                prev_norm: HashMap::new(),
+            }
+        }
+
+        /// Assemble observations for the current frame. `features` and `matches`
+        /// are index-aligned (as returned by `StereoMatcher::match_features`).
+        /// `dt` is the inter-frame interval in seconds, so the recovered motion
+        /// comes out in per-second units. A [`FeatureObs`] is emitted only for
+        /// tracks with BOTH a valid stereo depth now AND a normalized position
+        /// from the previous frame (needed to form the flow vector).
+        pub fn observe(
+            &mut self,
+            features: &[Feature],
+            matches: &[StereoMatch],
+            cam: &CameraIntrinsics,
+            dt: f64,
+        ) -> Vec<FeatureObs> {
+            let mut obs = Vec::new();
+            let mut curr_norm = HashMap::with_capacity(features.len());
+            for (f, m) in features.iter().zip(matches.iter()) {
+                let (xn, yn) = cam.normalize_undistorted(f.x as f64, f.y as f64);
+                curr_norm.insert(f.id, (xn, yn));
+                if !m.matched || m.inv_depth <= 0.0 || dt <= 0.0 {
+                    continue;
+                }
+                let z = 1.0 / m.inv_depth as f64;
+                if let Some(&(xp, yp)) = self.prev_norm.get(&f.id) {
+                    obs.push(FeatureObs {
+                        x: xn,
+                        y: yn,
+                        z,
+                        ux: (xn - xp) / dt,
+                        uy: (yn - yp) / dt,
+                    });
+                }
+            }
+            self.prev_norm = curr_norm;
+            obs
+        }
+
+        /// Forget all tracked positions (e.g. on a tracking reset).
+        pub fn reset(&mut self) {
+            self.prev_norm.clear();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,7 +312,10 @@ mod tests {
         let dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
         let na = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
         let nb = (b[0] * b[0] + b[1] * b[1] + b[2] * b[2]).sqrt();
-        (dot / (na * nb + 1e-12)).clamp(-1.0, 1.0).acos().to_degrees()
+        (dot / (na * nb + 1e-12))
+            .clamp(-1.0, 1.0)
+            .acos()
+            .to_degrees()
     }
 
     fn w_error(a: &[f64; 6], b: &[f64; 6]) -> f64 {
@@ -290,7 +358,10 @@ mod tests {
         let v_ang = v_dir_error_deg(&m_est, &m_gt);
         let w_err = w_error(&m_est, &m_gt);
         println!("v_dir_err = {v_ang:.4} deg, w_err = {w_err:.5}, m = {m_est:?}");
-        assert!(v_ang < 3.0, "translation direction error too large: {v_ang} deg");
+        assert!(
+            v_ang < 3.0,
+            "translation direction error too large: {v_ang} deg"
+        );
         assert!(w_err < 0.03, "angular velocity error too large: {w_err}");
     }
 }

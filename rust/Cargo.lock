@@ -995,6 +995,7 @@ dependencies = [
 name = "iqif-vio"
 version = "0.1.0"
 dependencies = [
+ "image",
  "iqif-core",
  "nalgebra",
  "rudolf-v",
