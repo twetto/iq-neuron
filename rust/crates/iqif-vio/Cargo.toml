@@ -17,3 +17,5 @@ nalgebra = "0.33"
 [dev-dependencies]
 # Image I/O for the EuRoC example (loading dataset PNGs).
 image = "0.25"
+# Live visualization window for the euroc_egomotion_live example.
+minifb = "0.27"

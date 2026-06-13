@@ -136,7 +136,7 @@ fn main() {
         klt_method: LkMethod::InverseCompositional,
         histeq: HistEqMethod::Global,
         camera: Some(cam.clone()),
-        lbp_policy: LbpPolicy::HardReject,
+        lbp_policy: LbpPolicy::SoftPenalty,
         enable_internal_ransac: true, // drop geometric outliers before the solve
         ..FrontendConfig::default()
     };
