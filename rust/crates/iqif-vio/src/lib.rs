@@ -79,15 +79,16 @@ pub fn build_system(features: &[FeatureObs]) -> (DMatrix<f64>, DVector<f64>) {
 /// push-pull pair.
 fn read_g(
     net: &IqNetwork,
-    cum_p: &[f64; N_VAL],
-    cum_n: &[f64; N_VAL],
-    off_p: &[f64; N_VAL],
-    off_n: &[f64; N_VAL],
+    cum_p: &[f64],
+    cum_n: &[f64],
+    off_p: &[f64],
+    off_n: &[f64],
     vp: i32,
     vn: i32,
 ) -> DVector<f64> {
-    let mut g = DVector::<f64>::zeros(N_VAL);
-    for j in 0..N_VAL {
+    let n_val = cum_p.len();
+    let mut g = DVector::<f64>::zeros(n_val);
+    for j in 0..n_val {
         let pp = net.potential(vp + j as i32) as f64;
         let pn = net.potential(vn + j as i32) as f64;
         let sp = pp + cum_p[j] * QUANTUM as f64 + off_p[j];
@@ -97,29 +98,30 @@ fn read_g(
     g
 }
 
-/// Solve for 6-DoF motion `m = [v; omega]` from known-depth flow features via
-/// the 8-bit predictive-coding relaxation. `g_init` seeds the held estimate
-/// (the whitened-space starting point).
-pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 6] {
-    let (g_mat, u) = build_system(features);
+/// Solve the least-squares system `U = G m` with the 8-bit push-pull
+/// predictive-coding relaxation (QR whitening + sigma-delta dither). Works for
+/// any number of unknowns (`= G.ncols()`); returns the decoded `m`.
+fn pc_relax(g_mat: &DMatrix<f64>, u: &DVector<f64>, g_init: &[f64]) -> DVector<f64> {
     let n_rows = g_mat.nrows();
+    let n_val = g_mat.ncols();
+    assert_eq!(g_init.len(), n_val);
 
     // QR whitening: A_w = Q (kappa = 1), solve for g = R m, decode m = R^-1 g.
     let qr = g_mat.clone().qr();
-    let q = qr.q(); // 2N x 6, orthonormal columns
-    let r = qr.r(); // 6 x 6 upper-triangular
+    let q = qr.q(); // 2N x n_val, orthonormal columns
+    let r = qr.r(); // n_val x n_val upper-triangular
     let r_inv = r.try_inverse().expect("R from QR is singular");
 
     // Closed-form whitened solution (g_ls = Q^T U), used ONLY to set integer
     // scales — not the estimate itself (the relaxation produces that).
-    let g_ls = q.transpose() * &u;
+    let g_ls = q.transpose() * u;
     let problem_scale = 2.0 / g_ls.amax();
-    let u_s = &u * problem_scale;
+    let u_s = u * problem_scale;
 
     // Bound the forward weight scale so the worst-case per-step value drive
     // (all error neurons firing) cannot exceed one quantum -> membrane <= 255.
     let mut col_l1_max = 0.0_f64;
-    for j in 0..N_VAL {
+    for j in 0..n_val {
         let mut s = 0.0;
         for k in 0..n_rows {
             s += q[(k, j)].abs();
@@ -132,8 +134,8 @@ pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 
     let ep = 0i32;
     let en = n_rows as i32;
     let vp = 2 * n_rows as i32;
-    let vn = vp + N_VAL as i32;
-    let n_total = 2 * n_rows + 2 * N_VAL;
+    let vn = vp + n_val as i32;
+    let n_total = 2 * n_rows + 2 * n_val;
 
     // Parameter file: leak-free integrators (threshold=0, shift_b=15 -> f=0).
     let mut par = String::new();
@@ -145,7 +147,7 @@ pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 
     let mut con = String::new();
     let mut n_conn = 0;
     for k in 0..n_rows {
-        for j in 0..N_VAL {
+        for j in 0..n_val {
             let w = (q[(k, j)] * wb as f64).round() as i32;
             if w == 0 {
                 continue;
@@ -167,16 +169,16 @@ pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 
         net.set_vmin(i, VMIN);
     }
     // Value neurons: kill synaptic lingering so per-step drive = one step only.
-    for j in 0..(2 * N_VAL) as i32 {
+    for j in 0..(2 * n_val) as i32 {
         net.set_surrogate_tau_one(vp + j, 1);
     }
 
     // Initialise the held estimate: split signed g_init across val+ / val-.
-    let mut cum_p = [0.0_f64; N_VAL];
-    let mut cum_n = [0.0_f64; N_VAL];
-    let mut off_p = [0.0_f64; N_VAL];
-    let mut off_n = [0.0_f64; N_VAL];
-    for j in 0..N_VAL {
+    let mut cum_p = vec![0.0_f64; n_val];
+    let mut cum_n = vec![0.0_f64; n_val];
+    let mut off_p = vec![0.0_f64; n_val];
+    let mut off_n = vec![0.0_f64; n_val];
+    for j in 0..n_val {
         let sp = g_init[j].max(0.0) * S_SCALE;
         let sn = (-g_init[j]).max(0.0) * S_SCALE;
         let rp = (sp as i32).min(VMAX - 1);
@@ -209,15 +211,40 @@ pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 
         }
         net.send_synapse();
         let counts = net.get_all_spike_counts();
-        for j in 0..N_VAL {
+        for j in 0..n_val {
             cum_p[j] += counts[(vp + j as i32) as usize] as f64;
             cum_n[j] += counts[(vn + j as i32) as usize] as f64;
         }
     }
 
     let g_final = read_g(&net, &cum_p, &cum_n, &off_p, &off_n, vp, vn);
-    let m = (&r_inv * &g_final) / problem_scale;
+    (&r_inv * &g_final) / problem_scale
+}
+
+/// Solve for 6-DoF motion `m = [v; omega]` from known-depth flow features.
+/// `g_init` seeds the held estimate (the whitened-space starting point).
+pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 6] {
+    let (g_mat, u) = build_system(features);
+    let m = pc_relax(&g_mat, &u, g_init);
     [m[0], m[1], m[2], m[3], m[4], m[5]]
+}
+
+/// De-rotation solve: given a KNOWN camera-frame angular velocity `omega` (e.g.
+/// from a gyro), subtract the rotational flow `B(x) omega` and solve only for
+/// the 3-DoF translation `v`. With rotation removed, the residual flow is pure
+/// `(1/Z) A v`, so lateral v1/v2 become observable instead of collapsing into
+/// the translation-rotation ambiguity.
+pub fn solve_translation_known_rotation(
+    features: &[FeatureObs],
+    omega: &[f64; 3],
+    g_init: &[f64; 3],
+) -> [f64; 3] {
+    let (g6, u) = build_system(features);
+    let g_v = g6.columns(0, 3).into_owned(); // (1/Z) A : translation block
+    let g_w = g6.columns(3, 3).into_owned(); // B : rotation block
+    let u_res = &u - &(g_w * DVector::from_row_slice(omega)); // de-rotated flow
+    let v = pc_relax(&g_v, &u_res, g_init);
+    [v[0], v[1], v[2]]
 }
 
 /// Adapter: turn Rudolf-V frontend tracks + sparse stereo depth into the
