@@ -1,0 +1,15 @@
+[package]
+name = "iqif-vio"
+version = "0.1.0"
+edition = "2021"
+description = "Neuromorphic VIO: predictive-coding 6-DoF egomotion on IQIF, fed by the Rudolf-V visual frontend"
+license = "MIT"
+
+[dependencies]
+# Path: the in-workspace bit-exact IQIF dynamics.
+iqif-core = { path = "../iqif-core" }
+# Git (rev pinned in Cargo.lock): the Rudolf-V visual frontend (KLT tracking,
+# sparse stereo depth, EuRoC camera model). Public repo.
+rudolf-v = { git = "https://github.com/twetto/Rudolf-V.git", rev = "9e8ad8ccbb4d0e601ccb76c22ce9a6eb00b46e10" }
+# Linear algebra for QR whitening / decode (same version Rudolf-V uses).
+nalgebra = "0.33"

@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["crates/iqif-core", "crates/iqif-py", "crates/iqif-gpu"]
+members = ["crates/iqif-core", "crates/iqif-py", "crates/iqif-gpu", "crates/iqif-vio"]
