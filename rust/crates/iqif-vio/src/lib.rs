@@ -247,6 +247,52 @@ pub fn solve_translation_known_rotation(
     [v[0], v[1], v[2]]
 }
 
+/// De-rotation solve with a temporal (Tikhonov) prior toward `prev_v`, turning
+/// the independent per-frame solve into a light recursive filter (the filtering
+/// lean of the design notes §7). The equilibrium is the MAP estimate
+/// `v* = (Gᵀ G + λ I)⁻¹ (Gᵀ u_res + λ prev_v)`, realised by stacking
+/// `√λ · I₃` rows onto the system before QR whitening — so the same 8-bit PC
+/// circuit solves it, no internals changed.
+///
+/// `alpha` is a dimensionless smoothing strength: `0` reduces to the plain
+/// per-frame solve; larger trades lag for less noise (mainly on the weak forward
+/// channel v3). `λ = alpha · mean(diag(Gᵀ G))`, so it tracks the data curvature
+/// and is invariant to feature count / depth scale.
+pub fn solve_translation_known_rotation_filtered(
+    features: &[FeatureObs],
+    omega: &[f64; 3],
+    prev_v: &[f64; 3],
+    alpha: f64,
+) -> [f64; 3] {
+    let (g6, u) = build_system(features);
+    let g_v = g6.columns(0, 3).into_owned();
+    let g_w = g6.columns(3, 3).into_owned();
+    let u_res = &u - &(g_w * DVector::from_row_slice(omega));
+
+    if alpha <= 0.0 {
+        let v = pc_relax(&g_v, &u_res, prev_v);
+        return [v[0], v[1], v[2]];
+    }
+
+    // λ relative to the data curvature so `alpha` is scale-free.
+    let gtg = g_v.transpose() * &g_v;
+    let mean_diag = (gtg[(0, 0)] + gtg[(1, 1)] + gtg[(2, 2)]) / 3.0;
+    let sl = (alpha * mean_diag).sqrt();
+
+    let n = g_v.nrows();
+    let mut g_aug = DMatrix::zeros(n + 3, 3);
+    g_aug.rows_mut(0, n).copy_from(&g_v);
+    let mut u_aug = DVector::zeros(n + 3);
+    u_aug.rows_mut(0, n).copy_from(&u_res);
+    for j in 0..3 {
+        g_aug[(n + j, j)] = sl;
+        u_aug[n + j] = sl * prev_v[j];
+    }
+
+    let v = pc_relax(&g_aug, &u_aug, prev_v);
+    [v[0], v[1], v[2]]
+}
+
 /// Adapter: turn Rudolf-V frontend tracks + sparse stereo depth into the
 /// [`FeatureObs`] the solver consumes. Holds the previous frame's normalized
 /// feature positions (keyed by persistent track id) so it can form per-feature
