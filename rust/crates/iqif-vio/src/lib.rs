@@ -98,19 +98,146 @@ fn read_g(
     g
 }
 
+/// How the design matrix is whitened to condition number 1 before the spiking
+/// relaxation. Both yield `(q, r_inv)` with `q = G·r_inv` orthonormal-columned,
+/// so the relaxation and decode (`m = r_inv·g`) are identical downstream.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WhitenMode {
+    /// Host-side QR factorization (the classical crutch): `r_inv = R⁻¹`.
+    Qr,
+    /// On-chip-style **whitening plasticity**: a local Hebbian/anti-Hebbian
+    /// network (Földiák / Pehlevan–Chklovskii) that learns the symmetric whitener
+    /// from a stream of feature rows, using only pre/post-synaptic activity — no
+    /// QR/SVD, no global matrix algebra. This is the "learned-plasticity" framing
+    /// of the design notes (on-chip anti-Hebbian whitening replacing host QR).
+    Plastic,
+}
+
+/// Learn the symmetric whitener for `GᵀG` with a **strictly local** plasticity
+/// rule (Földiák 1990 / Pehlevan–Chklovskii anti-Hebbian whitening network).
+///
+/// The value neurons carry lateral inhibitory weights `M` (symmetric). For each
+/// presented feature row `x` (a row of `G`) the output settles by lateral
+/// inhibition — pure neural dynamics, *not* a learning step:
+///
+/// ```text
+/// y = (I + M)⁻¹ x
+/// ```
+///
+/// then every lateral synapse relaxes toward decorrelation + unit variance using
+/// only the time-averaged correlation of the two neurons it connects:
+///
+/// ```text
+/// ΔM_ij = η ( ⟨y_i y_j⟩ − δ_ij )
+/// ```
+///
+/// Off-diagonal `⟨y_i y_j⟩` is anti-Hebbian decorrelation; the diagonal
+/// `⟨y_i²⟩ − 1` is per-neuron homeostatic gain control to unit variance. The
+/// running correlation `⟨y_i y_j⟩` is a quantity a slow synapse accumulates from
+/// its own two endpoints over the feature stream — so the update is strictly
+/// local; using its averaged value (rather than noisy per-sample `y_i y_j`) is
+/// just what synaptic low-pass filtering does, and it removes the instability of
+/// the rank-1 online form. Whitening is *not* computed — it emerges as the fixed
+/// point `⟨y yᵀ⟩ = I`, where `(I+M)⁻¹` whitens the empirical covariance
+/// `C_emp = GᵀG/n`. The effective transform is then symmetric
+/// `W_eff = (I+M)⁻¹ = C_emp^{-1/2}`, so the whitener for `GᵀG` is `W_eff/√n`
+/// (returned). The `(I+M)⁻¹` solve stands in for the lateral-inhibition network
+/// settling to equilibrium.
+fn learn_whitener_plastic(g_mat: &DMatrix<f64>) -> DMatrix<f64> {
+    let n = g_mat.nrows();
+    let k = g_mat.ncols();
+    let id = DMatrix::<f64>::identity(k, k);
+
+    // Local input correlations ⟨x_i x_j⟩ (each entry reads only neurons i,j).
+    let c_emp = (g_mat.transpose() * g_mat) / (n as f64);
+    // Scale by the mean neuron variance ⟨x_i²⟩ (a local homeostatic set-point) so
+    // the lateral dynamics are conditioned the same way at any data magnitude.
+    let s = (0..k).map(|i| c_emp[(i, i)]).sum::<f64>() / k as f64;
+    let c_hat = &c_emp / s.max(1e-30);
+
+    // Anti-Hebbian whitening flow on the lateral weights M, driving ⟨y yᵀ⟩ → I.
+    // The additive flow `M += η(⟨yyᵀ⟩ − I)` is only stable for η < √λ_min(Ĉ)
+    // (the 1/σ_min ill-conditioning the design notes flag), so we pace η by
+    // backtracking on the scalar whitening residual — a global "slow down"
+    // signal, not part of any synapse's update.
+    let mut m = DMatrix::<f64>::zeros(k, k); // lateral inhibitory weights (symmetric)
+    let mut eta = 0.2;
+    let mut prev_res = f64::INFINITY;
+    let mut best_m = m.clone();
+    let mut best_res = f64::INFINITY;
+    let n_epochs = 20_000usize;
+    for _ in 0..n_epochs {
+        let p_inv = match (&id + &m).clone().try_inverse() {
+            Some(p) => p,
+            None => break,
+        };
+        let yy = &p_inv * &c_hat * &p_inv; // ⟨y yᵀ⟩
+        let drive = &yy - &id; // ΔM_ij ∝ ⟨y_i y_j⟩ − δ_ij  (local)
+        let res = drive.norm();
+        if res < best_res {
+            best_res = res;
+            best_m = m.clone();
+        }
+        if res < 1e-12 {
+            break;
+        }
+        if res > prev_res {
+            eta *= 0.5; // overshooting — slow the flow
+            if eta < 1e-9 {
+                break;
+            }
+        }
+        prev_res = res;
+        m += drive * eta;
+    }
+
+    // W_eff = (I+M)⁻¹ whitens Ĉ = C_emp/s; undo the s-scaling and the /n in
+    // C_emp so the result whitens GᵀG: W_for_GtG = (I+M)⁻¹ / √(n·s).
+    let w_eff = (&id + &best_m)
+        .try_inverse()
+        .expect("(I + M) singular after whitening plasticity");
+    w_eff / (n as f64 * s).sqrt()
+}
+
+/// Whitener for the relaxation: returns `(q, r_inv)` such that `q = G·r_inv` has
+/// orthonormal columns and the decode is `m = r_inv·g`.
+fn whitener(g_mat: &DMatrix<f64>, mode: WhitenMode) -> (DMatrix<f64>, DMatrix<f64>) {
+    match mode {
+        WhitenMode::Qr => {
+            let qr = g_mat.clone().qr();
+            let q = qr.q(); // 2N x n_val, orthonormal columns
+            let r = qr.r(); // n_val x n_val upper-triangular
+            let r_inv = r.try_inverse().expect("R from QR is singular");
+            (q, r_inv)
+        }
+        WhitenMode::Plastic => {
+            let w = learn_whitener_plastic(g_mat); // symmetric W = (GᵀG)^{-1/2}
+            let q = g_mat * &w; // orthonormal columns since WᵀGᵀGW = WCW = I
+            (q, w)
+        }
+    }
+}
+
 /// Solve the least-squares system `U = G m` with the 8-bit push-pull
 /// predictive-coding relaxation (QR whitening + sigma-delta dither). Works for
 /// any number of unknowns (`= G.ncols()`); returns the decoded `m`.
 fn pc_relax(g_mat: &DMatrix<f64>, u: &DVector<f64>, g_init: &[f64]) -> DVector<f64> {
+    pc_relax_mode(g_mat, u, g_init, WhitenMode::Qr)
+}
+
+/// As [`pc_relax`], with an explicit whitening mode (QR or learned plasticity).
+fn pc_relax_mode(
+    g_mat: &DMatrix<f64>,
+    u: &DVector<f64>,
+    g_init: &[f64],
+    mode: WhitenMode,
+) -> DVector<f64> {
     let n_rows = g_mat.nrows();
     let n_val = g_mat.ncols();
     assert_eq!(g_init.len(), n_val);
 
-    // QR whitening: A_w = Q (kappa = 1), solve for g = R m, decode m = R^-1 g.
-    let qr = g_mat.clone().qr();
-    let q = qr.q(); // 2N x n_val, orthonormal columns
-    let r = qr.r(); // n_val x n_val upper-triangular
-    let r_inv = r.try_inverse().expect("R from QR is singular");
+    // Whiten to kappa = 1: A_w = q (orthonormal cols), solve g, decode m = r_inv g.
+    let (q, r_inv) = whitener(g_mat, mode);
 
     // Closed-form whitened solution (g_ls = Q^T U), used ONLY to set integer
     // scales — not the estimate itself (the relaxation produces that).
@@ -224,9 +351,165 @@ fn pc_relax(g_mat: &DMatrix<f64>, u: &DVector<f64>, g_init: &[f64]) -> DVector<f
 /// Solve for 6-DoF motion `m = [v; omega]` from known-depth flow features.
 /// `g_init` seeds the held estimate (the whitened-space starting point).
 pub fn solve_egomotion(features: &[FeatureObs], g_init: &[f64; N_VAL]) -> [f64; 6] {
+    solve_egomotion_mode(features, g_init, WhitenMode::Qr)
+}
+
+/// As [`solve_egomotion`], selecting the whitener: host QR or learned
+/// [`WhitenMode::Plastic`] (on-chip-style anti-Hebbian whitening).
+pub fn solve_egomotion_mode(
+    features: &[FeatureObs],
+    g_init: &[f64; N_VAL],
+    mode: WhitenMode,
+) -> [f64; 6] {
     let (g_mat, u) = build_system(features);
-    let m = pc_relax(&g_mat, &u, g_init);
+    let m = pc_relax_mode(&g_mat, &u, g_init, mode);
     [m[0], m[1], m[2], m[3], m[4], m[5]]
+}
+
+// ── Inhibition-dominated spike-coding-network solver (MKM 2020) ─────────────
+// Egomotion as the instantaneous population readout of a tight-balance SCN:
+// min ½‖U − A_w g‖² with g = D r (r = filtered spikes ≥ 0). Recurrent lateral
+// inhibition Ω = ΦᵀΦ (Φ = A_w D); a spike "bounces" the readout back toward the
+// optimum. To survive the chip's SYNCHRONOUS one-tick-delayed update we make the
+// recurrent strictly inhibition-dominated: every excitatory lateral weight is
+// CLIPPED to zero, so a delayed spike can only inhibit, never trigger a
+// follow-up (the MKM Gᵢⱼ≥0 delay-robustness condition). Decoder is a generic
+// overcomplete random frame (no exactly-anti-parallel pairs). Validated on the
+// IQIF chip in tests/test_pc_egomotion_scn_chip_inhib.py.
+
+const SCN_N: usize = 72; // decoder neurons (overcomplete frame over 6-D g)
+const SCN_STEPS: usize = 15_000; // relaxation ticks per frame
+const SCN_LAM: f64 = 2.0; // drive / readout-filter rate
+const SCN_DT: f64 = 1e-3;
+const SCN_REST: i32 = 127; // QIF stable rest (V=0 operating point)
+const SCN_SHIFT: i32 = 6; // membrane leak toward rest
+const SCN_NOISE: i32 = 8; // desynchronize the population
+
+/// Deterministic xorshift so the random decoder frame is reproducible.
+fn scn_unit(state: &mut u64) -> f64 {
+    let mut x = *state;
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+    *state = x;
+    ((x >> 11) as f64 / (1u64 << 53) as f64) * 2.0 - 1.0
+}
+
+/// Core SCN relaxation: solve the least-squares `U = G m` (any number of
+/// unknowns `= G.ncols()`) as the instantaneous population readout of an
+/// inhibition-dominated tight-balance spiking network on the IQIF chip. Returns
+/// the decoded `m`.
+fn scn_core(g_mat: &DMatrix<f64>, u: &DVector<f64>) -> DVector<f64> {
+    let n_val = g_mat.ncols();
+    let (q, r_inv) = whitener(g_mat, WhitenMode::Qr); // q = A_w, decode m = r_inv·g
+
+    let g_ls = q.transpose() * u; // whitened LS (scale reference only)
+    let g_norm = g_ls.norm().max(1e-9);
+    let d_scale = 0.02 * g_norm;
+
+    // Overcomplete random decoder frame: unit columns in n_val-D g-space.
+    let mut rng: u64 = 0x9E3779B97F4A7C15;
+    let mut d_dirs = DMatrix::<f64>::zeros(n_val, SCN_N);
+    for j in 0..SCN_N {
+        let mut nrm = 0.0;
+        for i in 0..n_val {
+            let v = scn_unit(&mut rng);
+            d_dirs[(i, j)] = v;
+            nrm += v * v;
+        }
+        let nrm = nrm.sqrt().max(1e-12);
+        for i in 0..n_val {
+            d_dirs[(i, j)] /= nrm;
+        }
+    }
+    let d_mat = &d_dirs * d_scale; // n_val x N decoder
+    let phi = &q * &d_mat; // 2N x N measurement-space dictionary
+    let fu = phi.transpose() * u; // ΦᵀU
+    let cos = d_dirs.transpose() * &d_dirs; // pairwise cosines (= Ω / d_scale²)
+
+    let t_thr = 0.5 * d_scale * d_scale; // uniform SCN threshold
+    let s = VMAX as f64 / (2.0 * t_thr); // voltage -> membrane counts
+    let drive = s * SCN_DT * SCN_LAM;
+
+    // Parameters: QIF with stable rest = REST, fire at VMAX, small leak + noise.
+    let mut par = String::new();
+    for i in 0..SCN_N {
+        par.push_str(&format!(
+            "{i} {SCN_REST} {VMAX} {RESET} {SCN_SHIFT} {SCN_SHIFT} {SCN_NOISE}\n"
+        ));
+    }
+    // Connections: lateral inhibition, CLIPPED to ≤0 (all-inhibitory) so a
+    // delayed spike can only inhibit, never trigger a follow-up (delay-robust).
+    let mut con = String::new();
+    let mut n_conn = 0;
+    for j in 0..SCN_N {
+        for i in 0..SCN_N {
+            if i == j {
+                continue;
+            }
+            let w = (-(VMAX as f64 * cos[(i, j)]).round()).min(0.0) as i32;
+            if w != 0 {
+                con.push_str(&format!("{j} {i} {w} 1\n"));
+                n_conn += 1;
+            }
+        }
+    }
+    if n_conn == 0 {
+        con.push_str("0 0 0 1\n");
+    }
+
+    let mut net = IqNetwork::from_text(&par, &con);
+    for i in 0..SCN_N as i32 {
+        net.set_vmax(i, VMAX);
+        net.set_vmin(i, VMIN);
+        net.set_surrogate_tau_one(i, 1);
+        let bias = (drive * fu[i as usize]).round() as i32;
+        net.set_biascurrent(i, bias);
+        net.set_potential(i, SCN_REST);
+    }
+
+    // Run: integrate spikes into a leaky readout r; average g = D·r over the tail.
+    let mut r = DVector::<f64>::zeros(SCN_N);
+    let mut r_acc = DVector::<f64>::zeros(SCN_N);
+    let tail = SCN_STEPS / 2;
+    for step in 0..SCN_STEPS {
+        net.send_synapse();
+        let counts = net.get_all_spike_counts();
+        for i in 0..SCN_N {
+            r[i] += counts[i] as f64 - SCN_LAM * SCN_DT * r[i];
+        }
+        if step >= tail {
+            r_acc += &r;
+        }
+    }
+    let r_mean = r_acc / (SCN_STEPS - tail) as f64;
+    let g_read = &d_mat * &r_mean; // readout in whitened g-space
+    &r_inv * &g_read // decode to motion
+}
+
+/// Solve 6-DoF egomotion with the inhibition-dominated SCN on the IQIF chip.
+/// Drop-in alternative to [`solve_egomotion`]: same `U = G m` least-squares, but
+/// the answer is the instantaneous population readout of an all-inhibitory
+/// spiking network rather than the labeled-line relaxation.
+pub fn solve_egomotion_scn(features: &[FeatureObs]) -> [f64; 6] {
+    let (g_mat, u) = build_system(features);
+    let m = scn_core(&g_mat, &u);
+    [m[0], m[1], m[2], m[3], m[4], m[5]]
+}
+
+/// IMU de-rotation with the SCN: given a KNOWN camera-frame angular velocity
+/// `omega` (e.g. from the gyro), subtract the rotational flow `B(x) omega` and
+/// solve only the 3-DoF translation `v` as the inhibition-dominated SCN
+/// population readout. With rotation removed the system is well-conditioned
+/// (no v↔ω ambiguity), so the SCN's lateral v1/v2 become observable — the
+/// natural first on-chip SCN target.
+pub fn solve_translation_known_rotation_scn(features: &[FeatureObs], omega: &[f64; 3]) -> [f64; 3] {
+    let (g6, u) = build_system(features);
+    let g_v = g6.columns(0, 3).into_owned(); // (1/Z) A : translation block
+    let g_w = g6.columns(3, 3).into_owned(); // B : rotation block
+    let u_res = &u - &(g_w * DVector::from_row_slice(omega)); // de-rotated flow
+    let v = scn_core(&g_v, &u_res);
+    [v[0], v[1], v[2]]
 }
 
 /// De-rotation solve: given a KNOWN camera-frame angular velocity `omega` (e.g.
@@ -431,6 +714,93 @@ mod tests {
         let v_ang = v_dir_error_deg(&m_est, &m_gt);
         let w_err = w_error(&m_est, &m_gt);
         println!("v_dir_err = {v_ang:.4} deg, w_err = {w_err:.5}, m = {m_est:?}");
+        assert!(
+            v_ang < 3.0,
+            "translation direction error too large: {v_ang} deg"
+        );
+        assert!(w_err < 0.03, "angular velocity error too large: {w_err}");
+    }
+
+    /// The learned whitener whitens to kappa=1 and equals the QR whitener in the
+    /// sense that matters: `r_inv·r_invᵀ = (GᵀG)⁻¹` (the decode is identical LS).
+    #[test]
+    fn plastic_whitening_conditions_to_identity() {
+        let mut rng = Lcg::new(11);
+        let n = 30;
+        let mut g = DMatrix::<f64>::zeros(2 * n, 6);
+        for i in 0..n {
+            let x = rng.range(-0.7, 0.7);
+            let y = rng.range(-0.5, 0.5);
+            let z = rng.range(2.0, 10.0);
+            let blk = motion_field_rows(x, y, z);
+            for c in 0..6 {
+                g[(2 * i, c)] = blk[0][c];
+                g[(2 * i + 1, c)] = blk[1][c];
+            }
+        }
+
+        let w = learn_whitener_plastic(&g);
+        let c = g.transpose() * &g;
+        println!("|W|max = {:.3e}, C cond ~ {:.2e}", w.amax(), {
+            let ev = c.clone().symmetric_eigenvalues();
+            ev.amax() / ev.amin()
+        });
+
+        // WCW = I  (columns of G·W are orthonormal -> kappa = 1).
+        let wcw = &w * &c * &w;
+        let mut max_off = 0.0_f64;
+        for i in 0..6 {
+            for j in 0..6 {
+                let t = if i == j { 1.0 } else { 0.0 };
+                let d = (wcw[(i, j)] - t).abs();
+                if d.is_nan() || d > max_off {
+                    max_off = d;
+                }
+            }
+        }
+        println!("max|WCW - I| = {max_off:.3e}");
+        // Local plasticity converges approximately (not to machine precision):
+        // resulting condition number 1+max_off should be close to 1.
+        assert!(
+            max_off < 0.05,
+            "plastic whitener not conditioning to ~kappa=1: {max_off}"
+        );
+
+        // Decode equivalence: r_inv·r_invᵀ should track (GᵀG)⁻¹ (relative).
+        let recon = &w * w.transpose();
+        let c_inv = c.try_inverse().unwrap();
+        let err = (&recon - &c_inv).amax() / c_inv.amax();
+        println!("rel max|WWᵀ - C⁻¹| = {err:.3e}");
+        assert!(err < 0.05, "plastic decode drifts from LS decode: {err}");
+    }
+
+    /// End-to-end: the plastic-whitened spiking solve hits the same accuracy
+    /// bounds as the QR-whitened one on the synthetic scene.
+    #[test]
+    fn plastic_whitening_solves_egomotion() {
+        let m_gt = [0.30, 0.05, 0.12, 0.02, -0.05, 0.015];
+        let mut rng = Lcg::new(7);
+        let n = 40;
+        let mut feats = Vec::with_capacity(n);
+        for _ in 0..n {
+            let x = rng.range(-0.70, 0.70);
+            let y = rng.range(-0.50, 0.50);
+            let z = rng.range(2.0, 10.0);
+            let blk = motion_field_rows(x, y, z);
+            let ux: f64 = (0..6).map(|c| blk[0][c] * m_gt[c]).sum();
+            let uy: f64 = (0..6).map(|c| blk[1][c] * m_gt[c]).sum();
+            feats.push(FeatureObs { x, y, z, ux, uy });
+        }
+        let mut rng2 = Lcg::new(3);
+        let mut g_init = [0.0_f64; 6];
+        for v in g_init.iter_mut() {
+            *v = rng2.range(-1.6, 1.6);
+        }
+
+        let m_est = solve_egomotion_mode(&feats, &g_init, WhitenMode::Plastic);
+        let v_ang = v_dir_error_deg(&m_est, &m_gt);
+        let w_err = w_error(&m_est, &m_gt);
+        println!("[plastic] v_dir_err = {v_ang:.4} deg, w_err = {w_err:.5}, m = {m_est:?}");
         assert!(
             v_ang < 3.0,
             "translation direction error too large: {v_ang} deg"

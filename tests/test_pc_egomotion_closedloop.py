@@ -275,3 +275,77 @@ out2 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     "pc_egomotion_closedloop_raster.png")
 fig2.savefig(out2, dpi=120)
 print(f"  Potential heatmap + spike raster written to {out2}")
+
+# ── Synaptic weight matrix (the on-chip fabric), block-labeled ───────────────
+# Rebuild the full post x pre weight matrix exactly as written to the
+# connection file, then annotate which population-to-population block is which.
+from matplotlib.colors import SymLogNorm
+from matplotlib.patches import Rectangle
+
+W = np.zeros((N_TOTAL, N_TOTAL))     # W[post, pre] = synaptic weight
+for k in range(N_ROWS):
+    for j in range(N_VAL):
+        wb = int(round(A_w[k, j] * WB))
+        wf = int(round(A_w[k, j] * WF))
+        # forward A_w^T  (eps -> hold):    gradient path,  "error -> value"
+        W[HP + j, EP + k] += wb
+        W[HP + j, EN + k] += -wb
+        W[HN + j, EP + k] += -wb
+        W[HN + j, EN + k] += wb
+        # feedback A_w   (relay -> eps):   prediction path, "value -> error"
+        W[EP + k, RP + j] += -wf
+        W[EP + k, RN + j] += wf
+        W[EN + k, RP + j] += wf
+        W[EN + k, RN + j] += -wf
+
+# Population boundaries and (centre, label) for ticks.
+bounds = [0, EN, HP, HN, RP, RN, N_TOTAL]
+pop_lab = ["eps+", "eps-", "hold+", "hold-", "relay+", "relay-"]
+centres = [(bounds[i] + bounds[i + 1]) / 2 for i in range(len(pop_lab))]
+
+fig3, ax3 = plt.subplots(figsize=(11, 10))
+fig3.suptitle("Closed-loop egomotion PC: synaptic weight matrix  W[post, pre]",
+              fontweight="bold")
+wmax = np.max(np.abs(W))
+im3 = ax3.imshow(W, cmap="RdBu_r", origin="upper",
+                 norm=SymLogNorm(linthresh=1.0, vmin=-wmax, vmax=wmax),
+                 interpolation="nearest")
+fig3.colorbar(im3, ax=ax3, fraction=0.046, label="weight (signed, symlog)")
+
+# Block grid + group ticks.
+for b in bounds[1:-1]:
+    ax3.axhline(b - 0.5, color="0.4", lw=0.6)
+    ax3.axvline(b - 0.5, color="0.4", lw=0.6)
+ax3.set_xticks(centres); ax3.set_xticklabels(pop_lab, rotation=45, ha="right")
+ax3.set_yticks(centres); ax3.set_yticklabels(pop_lab)
+ax3.set_xlabel("presynaptic neuron  (source of spike)")
+ax3.set_ylabel("postsynaptic neuron  (receives weight)")
+
+# Outline + label the two active blocks.
+def label_block(rlo, rhi, clo, chi, text, edge):
+    ax3.add_patch(Rectangle((clo - 0.5, rlo - 0.5), chi - clo, rhi - rlo,
+                            fill=False, edgecolor=edge, lw=2.0))
+    ax3.annotate(text, xy=((clo + chi) / 2, (rlo + rhi) / 2),
+                 ha="center", va="center", fontsize=10, fontweight="bold",
+                 color=edge,
+                 bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=edge, alpha=0.85))
+
+# forward gradient block: post = hold, pre = eps
+label_block(HP, RP, EP, HP, "A$_w^\\mathsf{T}$  (forward)\nerror $\\to$ value\ngradient", "tab:green")
+# feedback prediction block: post = eps, pre = relay
+label_block(EP, HP, RP, N_TOTAL, "A$_w$  (feedback)\nvalue $\\to$ error\nprediction", "tab:blue")
+
+# The hold -> relay readout is NOT a synapse (host copies the held value into
+# the relay bias each step); mark its block so the diagram is honest.
+ax3.add_patch(Rectangle((HP - 0.5, RP - 0.5), RP - HP, N_TOTAL - RP,
+                        fill=False, edgecolor="0.5", lw=1.2, ls="--"))
+ax3.annotate("value $\\to$ relay\n(host copy,\nnot synaptic)",
+             xy=((HP + RP) / 2, (RP + N_TOTAL) / 2), ha="center", va="center",
+             fontsize=8, color="0.35",
+             bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="0.5", alpha=0.8))
+
+fig3.tight_layout(rect=[0, 0, 1, 0.97])
+out3 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "pc_egomotion_closedloop_weights.png")
+fig3.savefig(out3, dpi=120)
+print(f"  Weight matrix written to {out3}")
