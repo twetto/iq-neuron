@@ -102,15 +102,41 @@ bias = np.round(DRIVE * fU).astype(int)
 
 # Recurrent weight (j->i, i!=j) = -round(255 * cos_ij).  Excitatory entries are
 # the ones with cos_ij < 0 (weight > 0); CLIP zeros them -> all-inhibitory.
-W = np.round(VMAX * COS).astype(int)                   # = round(s*Omega) in counts
-np.fill_diagonal(W, 0)
+W = np.round(VMAX * COS).astype(float)                 # = round(s*Omega) in counts
+np.fill_diagonal(W, 0.0)
 weight = -W                                            # connection weight on spike
 n_exc_before = int((weight > 0).sum())
 if CLIP:
-    weight = np.minimum(weight, 0)                     # keep only inhibitory
+    weight = np.minimum(weight, 0.0)                   # keep only inhibitory (sign-clip)
+# W_BUDGET: bound the worst incoming Sum|w| <= budget by a GLOBAL uniform scale
+# (keeps both signs AND the relative structure -> the LS *direction* is
+# preserved; only the readout magnitude inflates by 1/f, corrected below).
+W_BUDGET = float(os.environ.get("W_BUDGET", "0"))
+w_corr = 1.0
+if W_BUDGET > 0:
+    max_rs = np.abs(weight).sum(axis=1).max()
+    if max_rs > W_BUDGET:
+        f = W_BUDGET / max_rs
+        weight *= f
+        w_corr = f  # readout correction: g_true ≈ f · (D r)
+    print(f"  W_BUDGET={W_BUDGET:.0f}: global scale f={w_corr:.4f}, "
+          f"max incoming Sum|w| {max_rs:.0f} -> {np.abs(weight).sum(axis=1).max():.0f}")
+# EXC_BUDGET: bound only the EXCITATORY (positive) incoming sum per neuron --
+# excitation is what cascades; inhibition only pushes down, so keep it at full
+# strength (preserves the competition that solves the LS). 0 = off.
+EXC_BUDGET = float(os.environ.get("EXC_BUDGET", "0"))
+if EXC_BUDGET > 0:
+    for i in range(N):
+        pos = weight[i, :] > 0
+        es = weight[i, pos].sum()
+        if es > EXC_BUDGET:
+            weight[i, pos] *= EXC_BUDGET / es
+    print(f"  EXC_BUDGET={EXC_BUDGET:.0f}: max excitatory incoming sum -> "
+          f"{max((weight[i, weight[i,:]>0].sum()) for i in range(N)):.0f}")
+weight = np.round(weight).astype(int)
 n_exc_after = int((weight > 0).sum())
-print(f"  excitatory lateral connections: {n_exc_before} -> {n_exc_after} after clip")
-print(f"  bias range [{bias.min()},{bias.max()}]   |inhib weight| max {int(np.abs(weight).max())}")
+print(f"  excitatory lateral connections: {n_exc_before} -> {n_exc_after}")
+print(f"  bias range [{bias.min()},{bias.max()}]   |weight| max {int(np.abs(weight).max())}")
 
 from iqif import iqnet
 
@@ -158,7 +184,7 @@ for t in range(N_STEPS):
         spk_i.extend(fired.tolist())
 
 TAIL = N_STEPS // 2
-g_chip = g_hist[TAIL:].mean(0)
+g_chip = g_hist[TAIL:].mean(0) * w_corr  # undo the global recurrent down-scale
 m_chip = R_inv @ g_chip
 
 print("\n" + "=" * 70)

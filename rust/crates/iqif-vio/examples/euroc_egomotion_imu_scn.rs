@@ -201,7 +201,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         eprintln!(
-            "Usage: euroc_egomotion_imu <euroc_dataset_path> [num_frames] [out.csv] [bx,by,bz] [alpha]"
+            "Usage: euroc_egomotion_imu_scn <euroc_dataset_path> [num_frames] [out.csv] [bx,by,bz]"
         );
         std::process::exit(1);
     }
@@ -240,16 +240,13 @@ fn main() {
         })
         .unwrap_or_else(|| estimate_bias(&imu, 0.5));
 
-    // Temporal-prior strength (filtering lean): 0 = per-frame solve.
-    let alpha: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(0.0);
-
     println!(
         "IMU de-rotation: {num_frames} frames, imu samples {}, gt samples {}",
         imu.len(),
         gt.len()
     );
     println!(
-        "  gyro bias (body, rad/s): [{:.5} {:.5} {:.5}], alpha {alpha}",
+        "  gyro bias (body, rad/s): [{:.5} {:.5} {:.5}]",
         bias[0], bias[1], bias[2]
     );
 
@@ -319,9 +316,9 @@ fn main() {
         };
 
         let omega = [w_cam[0], w_cam[1], w_cam[2]];
-        // 3-DoF translation as the inhibition-dominated SCN population readout.
+        // 3-DoF translation as the inhibition-dominated SCN population readout
+        // (SCN_TAU_DEROT=8 lateral exp-decay + full-frame count).
         let v = solve_translation_known_rotation_scn(&obs, &omega);
-        let _ = alpha;
 
         let gv = gt[k].1;
         let q = gt[k].2;

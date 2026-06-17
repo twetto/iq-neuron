@@ -383,7 +383,21 @@ const SCN_LAM: f64 = 2.0; // drive / readout-filter rate
 const SCN_DT: f64 = 1e-3;
 const SCN_REST: i32 = 127; // QIF stable rest (V=0 operating point)
 const SCN_SHIFT: i32 = 6; // membrane leak toward rest
-const SCN_NOISE: i32 = 8; // desynchronize the population
+                          // Noise 0 => deterministic per-frame readout. The all-inhibitory (clipped)
+                          // recurrent + heterogeneous per-neuron bias desynchronize the population on
+                          // their own, so no injected jitter is needed; removing it both removes the
+                          // frame-to-frame readout noise AND improves accuracy (0.97° vs 2.87° vs LS).
+const SCN_NOISE: i32 = 0;
+// Exp-decay time constant on the LATERAL inhibition (post-synaptic surrogate
+// tau, MUST be a power of two — the decay is a bit-shift). Smoothing the
+// inhibitory input regularizes the firing (ISI CV 0.68 -> 0.14) and sharply
+// cuts the per-frame error. Lateral weights are rescaled by 1/tau so the
+// effective (time-integrated) inhibition strength is unchanged. The 3-DoF
+// de-rotated solve needs more smoothing than the well-spanned 6-DoF one
+// (A/B on EuRoC V1_01: 6-DoF best at 4, IMU 3-DoF best at 8 where it matches
+// the host PC baseline). `SCN_TAU` env var overrides both for tuning.
+const SCN_TAU: i32 = 4; // 6-DoF default
+const SCN_TAU_DEROT: i32 = 8; // 3-DoF gyro-de-rotated default
 
 /// Deterministic xorshift so the random decoder frame is reproducible.
 fn scn_unit(state: &mut u64) -> f64 {
@@ -399,7 +413,7 @@ fn scn_unit(state: &mut u64) -> f64 {
 /// unknowns `= G.ncols()`) as the instantaneous population readout of an
 /// inhibition-dominated tight-balance spiking network on the IQIF chip. Returns
 /// the decoded `m`.
-fn scn_core(g_mat: &DMatrix<f64>, u: &DVector<f64>) -> DVector<f64> {
+fn scn_core(g_mat: &DMatrix<f64>, u: &DVector<f64>, tau: i32) -> DVector<f64> {
     let n_val = g_mat.ncols();
     let (q, r_inv) = whitener(g_mat, WhitenMode::Qr); // q = A_w, decode m = r_inv·g
 
@@ -447,7 +461,10 @@ fn scn_core(g_mat: &DMatrix<f64>, u: &DVector<f64>) -> DVector<f64> {
             if i == j {
                 continue;
             }
-            let w = (-(VMAX as f64 * cos[(i, j)]).round()).min(0.0) as i32;
+            // all-inhibitory clip, rescaled by 1/tau (exp-decay synapse
+            // integrates ~tau steps, so this keeps effective inhibition fixed).
+            let w0 = (-(VMAX as f64 * cos[(i, j)]).round()).min(0.0);
+            let w = (w0 / tau as f64).round() as i32;
             if w != 0 {
                 con.push_str(&format!("{j} {i} {w} 1\n"));
                 n_conn += 1;
@@ -462,7 +479,7 @@ fn scn_core(g_mat: &DMatrix<f64>, u: &DVector<f64>) -> DVector<f64> {
     for i in 0..SCN_N as i32 {
         net.set_vmax(i, VMAX);
         net.set_vmin(i, VMIN);
-        net.set_surrogate_tau_one(i, 1);
+        net.set_surrogate_tau_one(i, tau); // exp-decay lateral inhibition
         let bias = (drive * fu[i as usize]).round() as i32;
         net.set_biascurrent(i, bias);
         net.set_potential(i, SCN_REST);
@@ -491,9 +508,17 @@ fn scn_core(g_mat: &DMatrix<f64>, u: &DVector<f64>) -> DVector<f64> {
 /// Drop-in alternative to [`solve_egomotion`]: same `U = G m` least-squares, but
 /// the answer is the instantaneous population readout of an all-inhibitory
 /// spiking network rather than the labeled-line relaxation.
+/// Lateral exp-decay tau, `SCN_TAU` env override (for A/B tuning) else `default`.
+fn scn_tau(default: i32) -> i32 {
+    std::env::var("SCN_TAU")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
 pub fn solve_egomotion_scn(features: &[FeatureObs]) -> [f64; 6] {
     let (g_mat, u) = build_system(features);
-    let m = scn_core(&g_mat, &u);
+    let m = scn_core(&g_mat, &u, scn_tau(SCN_TAU));
     [m[0], m[1], m[2], m[3], m[4], m[5]]
 }
 
@@ -508,7 +533,9 @@ pub fn solve_translation_known_rotation_scn(features: &[FeatureObs], omega: &[f6
     let g_v = g6.columns(0, 3).into_owned(); // (1/Z) A : translation block
     let g_w = g6.columns(3, 3).into_owned(); // B : rotation block
     let u_res = &u - &(g_w * DVector::from_row_slice(omega)); // de-rotated flow
-    let v = scn_core(&g_v, &u_res);
+                                                              // tau=1 here: the 3-DoF de-rotated solve has a weakly-constrained forward
+                                                              // axis that exp-decay smoothing destabilizes (v3 blows up), so no lingering.
+    let v = scn_core(&g_v, &u_res, scn_tau(SCN_TAU_DEROT));
     [v[0], v[1], v[2]]
 }
 

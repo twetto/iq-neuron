@@ -196,6 +196,32 @@ fn main() {
             continue;
         }
 
+        // Optional: dump a contiguous range of frames' observations
+        // (frame,x,y,z,ux,uy) for offline analysis.
+        // DUMP_OBS_PATH=<csv> [DUMP_OBS_FROM=<i>] [DUMP_OBS_TO=<i>].
+        if let Ok(dp) = std::env::var("DUMP_OBS_PATH") {
+            let from: usize = std::env::var("DUMP_OBS_FROM")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+            let to: usize = std::env::var("DUMP_OBS_TO")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(usize::MAX);
+            if i == from {
+                std::fs::write(&dp, "frame,x,y,z,ux,uy\n").unwrap();
+            }
+            if i >= from && i <= to {
+                let mut of = std::fs::OpenOptions::new().append(true).open(&dp).unwrap();
+                for o in &obs {
+                    writeln!(of, "{i},{},{},{},{},{}", o.x, o.y, o.z, o.ux, o.uy).unwrap();
+                }
+                if i == to {
+                    eprintln!("dumped frames {from}..={to} to {dp}");
+                }
+            }
+        }
+
         let t0 = Instant::now();
         let m = solve_egomotion(&obs, &g_init);
         let solve_ms = t0.elapsed().as_secs_f64() * 1000.0;

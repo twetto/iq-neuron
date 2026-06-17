@@ -210,7 +210,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         eprintln!(
-            "Usage: euroc_egomotion_imu_live <euroc_dataset_path> [num_frames] [bx,by,bz] [alpha]"
+            "Usage: euroc_egomotion_imu_scn_live <euroc_dataset_path> [num_frames] [bx,by,bz]"
         );
         std::process::exit(1);
     }
@@ -248,17 +248,13 @@ fn main() {
         })
         .unwrap_or_else(|| estimate_bias(&imu, 0.5));
 
-    // Temporal-prior strength (filtering lean §7): 0 = per-frame solve. 0.5
-    // halves the forward-channel (v3) noise with no accuracy cost on V1_01.
-    let alpha: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(0.5);
-
     println!(
         "Live IMU de-rotation: {num_frames} frames, {w}x{h}, imu {}, gt {}",
         imu.len(),
         gt.len()
     );
     println!(
-        "  gyro bias (body, rad/s): [{:.5} {:.5} {:.5}], alpha {alpha}",
+        "  gyro bias (body, rad/s): [{:.5} {:.5} {:.5}]",
         bias[0], bias[1], bias[2]
     );
     println!("Charts top->bottom: v1 v2 v3 (m/s), w1 w2 w3 (rad/s). Bright=estimate (PC v + IMU w), faded=GT. Q/Esc quit, Space pause.");
@@ -339,9 +335,11 @@ fn main() {
             if let (Some(w_cam), true) = (w_cam, obs.len() >= 8 && dt > 0.0) {
                 let omega = [w_cam[0], w_cam[1], w_cam[2]];
                 // 3-DoF translation as the inhibition-dominated SCN population
-                // readout (gyro de-rotation breaks the v↔ω ambiguity).
+                // readout (gyro de-rotation breaks the v↔ω ambiguity). Uses the
+                // unfiltered solver (SCN_TAU_DEROT=8 lateral exp-decay, full-frame
+                // count) — matches the host PC baseline on V1_01. The temporal
+                // prior is left off on purpose (it diverges on the 3-DoF SCN).
                 let v = solve_translation_known_rotation_scn(&obs, &omega);
-                let _ = alpha; // (SCN path has no temporal-prior filter variant yet)
                 let est = [v[0], v[1], v[2], omega[0], omega[1], omega[2]];
 
                 // Frame-aligned ground truth (camera frame), if available.
