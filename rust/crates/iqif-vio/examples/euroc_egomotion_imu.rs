@@ -320,6 +320,34 @@ fn main() {
         };
 
         let omega = [w_cam[0], w_cam[1], w_cam[2]];
+
+        // Optional: dump ONE frame's de-rotated 3-DoF problem for offline
+        // visualization (tests/plot_pc_derot_viz.py): the camera-frame gyro
+        // `omega` (header comment) + the per-feature obs rows (x,y,z,ux,uy).
+        // The Python script subtracts B(x)·omega and runs the exact 8-bit PC
+        // relaxation this example uses. DUMP_DEROT_PATH=<csv> DUMP_DEROT_FRAME=<i>.
+        if let Ok(dp) = std::env::var("DUMP_DEROT_PATH") {
+            let target: usize = std::env::var("DUMP_DEROT_FRAME")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+            if i == target {
+                let mut s = format!("# omega_cam,{},{},{}\n", omega[0], omega[1], omega[2]);
+                s.push_str("x,y,z,ux,uy\n");
+                for o in &obs {
+                    s.push_str(&format!("{},{},{},{},{}\n", o.x, o.y, o.z, o.ux, o.uy));
+                }
+                std::fs::write(&dp, s).expect("write DUMP_DEROT_PATH");
+                eprintln!(
+                    "dumped de-rotation problem (frame {i}, {} obs, omega_cam [{:.5} {:.5} {:.5}]) to {dp}",
+                    obs.len(),
+                    omega[0],
+                    omega[1],
+                    omega[2]
+                );
+            }
+        }
+
         // alpha == 0: original per-frame solve; alpha > 0: temporal-prior filter.
         let v = if alpha > 0.0 {
             solve_translation_known_rotation_filtered(&obs, &omega, &prev_v, alpha)

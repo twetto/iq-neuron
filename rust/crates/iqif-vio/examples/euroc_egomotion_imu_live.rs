@@ -4,8 +4,9 @@
 //! Same display as `euroc_egomotion_live`, but the angular velocity is taken
 //! from the EuRoC gyro (`mav0/imu0`) instead of the full 6-DoF solve: the gyro
 //! is averaged over each inter-frame interval, bias-corrected, rotated body->cam
-//! with `R_BS^T`, used to de-rotate the flow, and the 8-bit predictive-coding
-//! circuit solves only the 3-DoF translation `v`. The estimate's w1/w2/w3 charts
+//! with `R_BS^T`, used to de-rotate the flow, and the 8-bit CLOSED-LOOP
+//! predictive-coding circuit (G realised as on-chip feedback weights, no host
+//! matmul) solves only the 3-DoF translation `v`. The estimate's w1/w2/w3 charts
 //! show the IMU rate actually used; v1/v2/v3 show the recovered translation.
 //!
 //! Left panel: cam0 with tracked features colored by sparse stereo depth.
@@ -18,7 +19,7 @@
 //! Controls: Q / Esc = quit, Space = pause/step.
 
 use iqif_vio::frontend_adapter::FlowDepthAdapter;
-use iqif_vio::{solve_translation_known_rotation, solve_translation_known_rotation_filtered};
+use iqif_vio::solve_translation_known_rotation_closed_loop;
 
 use rudolf_v::camera::{CameraIntrinsics, StereoRig};
 use rudolf_v::fast::Feature;
@@ -210,7 +211,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         eprintln!(
-            "Usage: euroc_egomotion_imu_live <euroc_dataset_path> [num_frames] [bx,by,bz] [alpha]"
+            "Usage: euroc_egomotion_imu_live <euroc_dataset_path> [num_frames] [bx,by,bz]"
         );
         std::process::exit(1);
     }
@@ -248,17 +249,13 @@ fn main() {
         })
         .unwrap_or_else(|| estimate_bias(&imu, 0.5));
 
-    // Temporal-prior strength (filtering lean §7): 0 = per-frame solve. 0.5
-    // halves the forward-channel (v3) noise with no accuracy cost on V1_01.
-    let alpha: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(0.5);
-
     println!(
-        "Live IMU de-rotation: {num_frames} frames, {w}x{h}, imu {}, gt {}",
+        "Live IMU de-rotation (closed-loop PC): {num_frames} frames, {w}x{h}, imu {}, gt {}",
         imu.len(),
         gt.len()
     );
     println!(
-        "  gyro bias (body, rad/s): [{:.5} {:.5} {:.5}], alpha {alpha}",
+        "  gyro bias (body, rad/s): [{:.5} {:.5} {:.5}]",
         bias[0], bias[1], bias[2]
     );
     println!("Charts top->bottom: v1 v2 v3 (m/s), w1 w2 w3 (rad/s). Bright=estimate (PC v + IMU w), faded=GT. Q/Esc quit, Space pause.");
@@ -339,12 +336,9 @@ fn main() {
 
             if let (Some(w_cam), true) = (w_cam, obs.len() >= 8 && dt > 0.0) {
                 let omega = [w_cam[0], w_cam[1], w_cam[2]];
-                // alpha == 0: original per-frame solve; alpha > 0: temporal-prior filter.
-                let v = if alpha > 0.0 {
-                    solve_translation_known_rotation_filtered(&obs, &omega, &prev_v, alpha)
-                } else {
-                    solve_translation_known_rotation(&obs, &omega, &[0.0; 3])
-                };
+                // Closed-loop circuit: G realised as on-chip feedback weights
+                // (no host matmul). prev_v seeds the held estimate.
+                let v = solve_translation_known_rotation_closed_loop(&obs, &omega, &prev_v);
                 prev_v = v;
                 let est = [v[0], v[1], v[2], omega[0], omega[1], omega[2]];
 

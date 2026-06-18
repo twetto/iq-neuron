@@ -603,6 +603,158 @@ pub fn solve_translation_known_rotation_filtered(
     [v[0], v[1], v[2]]
 }
 
+// ── Closed-loop predictive-coding relaxation (G as on-chip feedback) ────────
+// The open-loop `pc_relax` computes the prediction `A_w g` on the HOST each step
+// and injects it as the error bias. The closed-loop circuit closes the loop on
+// chip: a second weight matrix carries `A_w` as FEEDBACK (relay -> eps), so the
+// error neurons compute `eps = U - A_w g` themselves. Both mat-vecs (`A_w g` and
+// `A_wᵀ eps`) now live in the synaptic fabric; the host does no matmul. Three
+// populations (8-bit, leak-free): eps+/- (tonic error), hold+/- (integrate the
+// held estimate g in their shadow), relay+/- (tonic readout of g, whose spikes
+// carry the prediction through the feedback weights). The hold->relay readout is
+// a local per-neuron bias copy, not a synapse. Transliteration of
+// tests/test_pc_egomotion_closedloop.py.
+
+const CL_STEPS: usize = 6000;
+const CL_RS: f64 = 50.0; // error & relay rate scale (bias units per scaled unit)
+
+/// Closed-loop relaxation of the least-squares `U = G m`. Returns decoded `m`.
+fn cl_relax(g_mat: &DMatrix<f64>, u: &DVector<f64>, g_init: &[f64]) -> DVector<f64> {
+    let n_rows = g_mat.nrows();
+    let n_val = g_mat.ncols();
+    assert_eq!(g_init.len(), n_val);
+
+    let (q, r_inv) = whitener(g_mat, WhitenMode::Qr);
+    let g_ls = q.transpose() * u;
+    let problem_scale = 2.0 / g_ls.amax();
+    let u_s = u * problem_scale;
+
+    // Forward weight scale bounded so per-step hold drive <= one quantum.
+    let mut col_l1_max = 0.0_f64;
+    for j in 0..n_val {
+        let mut s = 0.0;
+        for k in 0..n_rows {
+            s += q[(k, j)].abs();
+        }
+        col_l1_max = col_l1_max.max(s);
+    }
+    let wb = ((QUANTUM as f64 / col_l1_max).floor() as i32).max(1);
+    let wf = QUANTUM; // feedback weight scale: (wf * RS / QUANTUM) = RS -> delivers -p*RS
+
+    // Index layout: eps+ | eps- | hold+ | hold- | relay+ | relay-
+    let ep = 0i32;
+    let en = n_rows as i32;
+    let hp = 2 * n_rows as i32;
+    let hn = hp + n_val as i32;
+    let rp = hn + n_val as i32;
+    let rn = rp + n_val as i32;
+    let n_total = 2 * n_rows + 4 * n_val;
+
+    // Leak-free integrators (threshold=0, shift_b=15 -> f=0).
+    let mut par = String::new();
+    for i in 0..n_total {
+        par.push_str(&format!("{i} 0 0 {RESET} 15 15 0\n"));
+    }
+
+    let mut con = String::new();
+    let mut n_conn = 0;
+    for k in 0..n_rows {
+        for j in 0..n_val {
+            let wbf = (q[(k, j)] * wb as f64).round() as i32;
+            let wff = (q[(k, j)] * wf as f64).round() as i32;
+            if wbf != 0 {
+                // forward A_wᵀ : eps -> hold (gradient path), push-pull.
+                con.push_str(&format!("{} {} {} 1\n", ep + k as i32, hp + j as i32, wbf));
+                con.push_str(&format!("{} {} {} 1\n", en + k as i32, hp + j as i32, -wbf));
+                con.push_str(&format!("{} {} {} 1\n", ep + k as i32, hn + j as i32, -wbf));
+                con.push_str(&format!("{} {} {} 1\n", en + k as i32, hn + j as i32, wbf));
+                n_conn += 4;
+            }
+            if wff != 0 {
+                // feedback A_w : relay -> eps (prediction path, delivers -p).
+                con.push_str(&format!("{} {} {} 1\n", rp + j as i32, ep + k as i32, -wff));
+                con.push_str(&format!("{} {} {} 1\n", rn + j as i32, ep + k as i32, wff));
+                con.push_str(&format!("{} {} {} 1\n", rp + j as i32, en + k as i32, wff));
+                con.push_str(&format!("{} {} {} 1\n", rn + j as i32, en + k as i32, -wff));
+                n_conn += 4;
+            }
+        }
+    }
+    if n_conn == 0 {
+        con.push_str("0 0 0 1\n");
+    }
+
+    let mut net = IqNetwork::from_text(&par, &con);
+    for i in 0..n_total as i32 {
+        net.set_vmax(i, VMAX);
+        net.set_vmin(i, VMIN);
+    }
+    // eps + hold receive synapses: kill lingering so per-step drive = one step.
+    for i in 0..(2 * n_rows + 2 * n_val) as i32 {
+        net.set_surrogate_tau_one(i, 1);
+    }
+
+    // Data U enters as a constant signed bias on the error neurons.
+    for k in 0..n_rows {
+        net.set_biascurrent(ep + k as i32, (u_s[k] * CL_RS).round() as i32);
+        net.set_biascurrent(en + k as i32, (-u_s[k] * CL_RS).round() as i32);
+    }
+
+    // Initialise the held estimate: split signed g_init across hold+ / hold-.
+    let mut cum_p = vec![0.0_f64; n_val];
+    let mut cum_n = vec![0.0_f64; n_val];
+    let mut off_p = vec![0.0_f64; n_val];
+    let mut off_n = vec![0.0_f64; n_val];
+    for j in 0..n_val {
+        let sp = g_init[j].max(0.0) * S_SCALE;
+        let sn = (-g_init[j]).max(0.0) * S_SCALE;
+        let rip = (sp as i32).min(VMAX - 1);
+        let rin = (sn as i32).min(VMAX - 1);
+        off_p[j] = sp - rip as f64;
+        off_n[j] = sn - rin as f64;
+        net.set_potential(hp + j as i32, rip);
+        net.set_potential(hn + j as i32, rin);
+    }
+
+    for _step in 0..CL_STEPS {
+        let g = read_g(&net, &cum_p, &cum_n, &off_p, &off_n, hp, hn);
+        // Relay tonic readout: fire ~ held value (local per-neuron copy).
+        for j in 0..n_val {
+            let bp = (g[j] * CL_RS).round().clamp(0.0, VMAX as f64) as i32;
+            let bn = (-g[j] * CL_RS).round().clamp(0.0, VMAX as f64) as i32;
+            net.set_biascurrent(rp + j as i32, bp);
+            net.set_biascurrent(rn + j as i32, bn);
+        }
+        net.send_synapse();
+        let counts = net.get_all_spike_counts();
+        for j in 0..n_val {
+            cum_p[j] += counts[(hp + j as i32) as usize] as f64;
+            cum_n[j] += counts[(hn + j as i32) as usize] as f64;
+        }
+    }
+
+    let g_final = read_g(&net, &cum_p, &cum_n, &off_p, &off_n, hp, hn);
+    (&r_inv * &g_final) / problem_scale
+}
+
+/// De-rotation solve with the CLOSED-LOOP circuit: given a known camera-frame
+/// `omega`, subtract the rotational flow `B(x) omega` and solve the 3-DoF
+/// translation `v` with `G` realised as on-chip feedback weights (no host
+/// matmul). `g_init` seeds the held estimate. Drop-in for
+/// [`solve_translation_known_rotation`].
+pub fn solve_translation_known_rotation_closed_loop(
+    features: &[FeatureObs],
+    omega: &[f64; 3],
+    g_init: &[f64; 3],
+) -> [f64; 3] {
+    let (g6, u) = build_system(features);
+    let g_v = g6.columns(0, 3).into_owned();
+    let g_w = g6.columns(3, 3).into_owned();
+    let u_res = &u - &(g_w * DVector::from_row_slice(omega));
+    let v = cl_relax(&g_v, &u_res, g_init);
+    [v[0], v[1], v[2]]
+}
+
 /// Adapter: turn Rudolf-V frontend tracks + sparse stereo depth into the
 /// [`FeatureObs`] the solver consumes. Holds the previous frame's normalized
 /// feature positions (keyed by persistent track id) so it can form per-feature
@@ -833,5 +985,31 @@ mod tests {
             "translation direction error too large: {v_ang} deg"
         );
         assert!(w_err < 0.03, "angular velocity error too large: {w_err}");
+    }
+
+    /// Closed-loop de-rotation translation solve: with the rotation known, the
+    /// on-chip-feedback circuit recovers the translation direction.
+    #[test]
+    fn closed_loop_translation_solves_known_rotation() {
+        let m_gt = [0.30, 0.05, 0.12, 0.02, -0.05, 0.015];
+        let omega = [m_gt[3], m_gt[4], m_gt[5]];
+        let mut rng = Lcg::new(7);
+        let n = 40;
+        let mut feats = Vec::with_capacity(n);
+        for _ in 0..n {
+            let x = rng.range(-0.70, 0.70);
+            let y = rng.range(-0.50, 0.50);
+            let z = rng.range(2.0, 10.0);
+            let blk = motion_field_rows(x, y, z);
+            let ux: f64 = (0..6).map(|c| blk[0][c] * m_gt[c]).sum();
+            let uy: f64 = (0..6).map(|c| blk[1][c] * m_gt[c]).sum();
+            feats.push(FeatureObs { x, y, z, ux, uy });
+        }
+
+        let v = solve_translation_known_rotation_closed_loop(&feats, &omega, &[0.0; 3]);
+        let v6 = [v[0], v[1], v[2], 0.0, 0.0, 0.0];
+        let v_ang = v_dir_error_deg(&v6, &m_gt);
+        println!("[closed-loop] v_dir_err = {v_ang:.4} deg, v = {v:?}");
+        assert!(v_ang < 5.0, "closed-loop translation direction error: {v_ang} deg");
     }
 }
