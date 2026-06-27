@@ -1,6 +1,8 @@
-# Migration Guide: v0.2.x to v0.3.0
+# Migration Guide
 
-## Overview
+## v0.2.x → v0.3.0: Bit-shift Slope Parameters
+
+### Overview
 
 Version 0.3.0 replaces the `a` and `b` multiplier parameters with `shift_a` and `shift_b` bit-shift parameters. This change enables direct hardware implementation using barrel shifters instead of multipliers.
 
@@ -92,6 +94,45 @@ else
     f = (x - _threshold) >> _shift_b;
 x += f + input + noise;
 ```
+
+## v0.3.x → v0.4.0: Synaptic Decay Phase Change
+
+The synaptic current decay was moved from the **tail of `update_state()`** to the
+**head of `send_synapse()`** (a new decay pass that runs *before* spikes are
+accumulated).
+
+### Why
+
+`get_current_accumulator()` / `get_all_current_accumulators()` previously returned
+the **post-decay residual** carried into the next step, not the post-synaptic
+current the neuron actually integrated. The accumulator was read into a local and
+then immediately overwritten by the trailing decay, so the integrated value was
+never externally observable.
+
+With the leak applied at the head of the step, `current_accumulator` now persists
+the **true input the neuron integrated this step** (`decay(I_{t-1}) + S_t`). This
+is also the more hardware-faithful form: on a digital datapath the accumulator
+register holds the synaptic current the soma integrates at the clock edge, and the
+leak is a next-cycle register operation.
+
+### Behavioral impact — check `get_decay_threshold(i)`
+
+| `timer_threshold` (per neuron) | When | Effect on dynamics |
+|---|---|---|
+| `== 0` | synapse `tau <= surrogate_tau` (decay fires every step) | **Bit-identical** — membrane potentials and spike trains unchanged. |
+| `> 0`  | synapse `tau > surrogate_tau` (periodic decay) | Decay now lands **one step earlier**. Spike timing can shift by ~1 step. **Re-validate / re-tune these configs.** |
+
+The decay phase is a sub-step discretization detail; neither phase is "more
+correct," so the new (hardware-natural) ordering is now the canonical one rather
+than the legacy simulator's accidental phase. Configs that ran `tau <= surrogate_tau`
+are unaffected.
+
+### Readout semantics changed
+
+`get_current_accumulator()` now reports the **pre-decay integrated input** instead
+of the post-decay residual. Update any analysis code, fixtures, or saved checkpoints
+that depended on the old value. `set_current_accumulator()` still restores the
+persisted accumulator (the two are symmetric within this version).
 
 ## Questions?
 
