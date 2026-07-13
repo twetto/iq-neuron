@@ -1,12 +1,15 @@
-// One IQIF timestep, split into two compute entry points that share one bind
-// group (see rust/PLAN.md, Phase 3). The host runs them as two passes per step:
+// One IQIF timestep, split into three compute entry points that share one bind
+// group (see rust/PLAN.md, Phase 3). The host runs them as three passes per step:
 //
-//   1. propagate   — gather incoming spikes over the transposed (CSC) adjacency
-//   2. update_state — decay synapse, integrate, fire/reset
+//   0. decay        — leak the synapse residual carried from t-1 (SynapseGroup::step)
+//   1. propagate    — gather incoming spikes over the transposed (CSC) adjacency
+//   2. update_state — integrate, fire/reset
 //
 // The pass boundary serializes them, so `is_firing` written by step N's
-// `update_state` is exactly what step N+1's `propagate` reads. All state stays
-// resident in `state`; the host only reads it back in bulk on demand.
+// `update_state` is exactly what step N+1's `propagate` reads, and the decay
+// pass leaves `accumulator` holding the true integrated input (decayed carry-over
+// from t-1 plus this step's fresh spikes) that `update_state` reads. All state
+// stays resident in `state`; the host only reads it back in bulk on demand.
 //
 // Bit-exactness rules (Phase 2 finding): never emit raw signed `%` — NVIDIA
 // Vulkan/GL miscompile it for negatives. The one remainder here (noise) is done
@@ -54,6 +57,34 @@ struct Meta {
 @group(0) @binding(3) var<storage, read>        csc_edges: array<vec2<i32>>; // (source, weight)
 @group(0) @binding(4) var<uniform>              dims: Meta;
 
+// Faithful port of `SynapseGroup::step`. Runs at the head of the timestep,
+// before `propagate`, so the leak acts on the previous step's carry-over BEFORE
+// this step's spikes are gathered in. This leaves `accumulator` holding the true
+// post-synaptic current the neuron integrates (observable by the host getters),
+// matching the phase-0 decay pass in the CPU core's `send_synapse`.
+@compute @workgroup_size(64)
+fn decay(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let i = gid.x;
+    if (i >= dims.num_neurons) {
+        return;
+    }
+    let p = params[i];
+    var s = state[i];
+    if (s.timer > p.timer_threshold) {
+        let d = s.accumulator >> u32(p.decay_shift_k);
+        if (d != 0) {
+            s.accumulator = s.accumulator - d;
+        } else if (s.accumulator > 0) {
+            s.accumulator = s.accumulator - 1;      // "leak by 1" for small magnitudes
+        } else if (s.accumulator < 0) {
+            s.accumulator = s.accumulator + 1;
+        }
+        s.timer = 0;
+    }
+    s.timer = s.timer + 1;
+    state[i] = s;
+}
+
 // Gather: each post-neuron sums the weights of incoming edges whose source
 // fired last step, then adds the sum into its accumulator. Race-free (each post
 // is written by exactly one invocation) and deterministic (integer add is
@@ -78,7 +109,8 @@ fn propagate(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 }
 
-// Faithful port of `IqNeuron::update_state` (+ `SynapseGroup::step`).
+// Faithful port of `IqNeuron::update_state` (decay is applied by the `decay`
+// pass at the head of the step, not here).
 @compute @workgroup_size(64)
 fn update_state(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
@@ -88,21 +120,9 @@ fn update_state(@builtin(global_invocation_id) gid: vec3<u32>) {
     let p = params[i];
     var s = state[i];
 
-    // Capture undecayed input from t-1, then decay the synapse for t+1.
+    // The true post-synaptic current: decayed carry-over from t-1 (the decay
+    // pass) plus this step's freshly-gathered spikes (the propagate pass).
     let current_val = s.accumulator;
-    if (s.timer > p.timer_threshold) {
-        let decay = s.accumulator >> u32(p.decay_shift_k);
-        if (decay != 0) {
-            s.accumulator = s.accumulator - decay;
-        } else if (s.accumulator > 0) {
-            s.accumulator = s.accumulator - 1;
-        } else if (s.accumulator < 0) {
-            s.accumulator = s.accumulator + 1;
-        }
-        s.timer = 0;
-    }
-    s.timer = s.timer + 1;
-
     let total_input = current_val + p.biascurrent;
 
     var f: i32;

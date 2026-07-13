@@ -224,9 +224,11 @@ impl IqNeuron {
     }
 
     pub fn update_state(&mut self, external_current: i32) {
-        // Capture undecayed input from t-1, then decay for t+1.
+        // Read the true post-synaptic current: decayed carry-over from t-1 plus
+        // this step's freshly-accumulated spikes. Decay is applied at the head of
+        // send_synapse() (before accumulation), so current_accumulator persists
+        // this exact value and stays externally readable.
         let current_val = self.synapse.current_accumulator;
-        self.synapse.step();
 
         let total_input = current_val + external_current;
 
@@ -525,6 +527,14 @@ impl IqNetwork {
     }
 
     pub fn send_synapse(&mut self) {
+        // Phase 0: decay the residual carried from the previous step BEFORE new
+        // spikes are accumulated. Moving the leak to the head of the step (rather
+        // than the tail of update_state) leaves current_accumulator holding the
+        // true input the neuron integrates, so get_current_accumulator() observes
+        // it instead of the post-decay residual. Same recurrence I_t = decay(I_{t-1}) + S_t.
+        for i in 0..self.num_neurons {
+            self.neurons[i].synapse.step();
+        }
         // Phase 1: propagate spikes using is_firing from t-1.
         for i in 0..self.num_neurons {
             if self.neurons[i].is_firing {
@@ -537,7 +547,7 @@ impl IqNetwork {
                 }
             }
         }
-        // Phase 2: decay + solve + set firing for t.
+        // Phase 2: solve + set firing for t (decay already applied in phase 0).
         for i in 0..self.num_neurons {
             let bias = self.biascurrent[i];
             self.neurons[i].update_state(bias);
@@ -760,6 +770,65 @@ mod tests {
         assert_eq!(incoming(1), vec![(0, 10), (2, 30)]);
         assert_eq!(incoming(2), vec![(0, 20)]);
         assert_eq!(csc.offsets, vec![0, 0, 2, 3]);
+    }
+
+    // Mirrors tests/test_decay_phase.py: locks the v0.4.0 synaptic decay phase
+    // (leak at the head of send_synapse) to the C++ reference, both the
+    // observability invariant and golden spike trains in each decay regime.
+    fn decay_cfg(tau_a: i32, tau_b: i32) -> (String, String) {
+        let par = "0 80 235 80 3 4 0\n1 80 235 80 3 4 0\n".to_string();
+        let con = format!("0 1 10 {tau_a}\n1 0 -5 {tau_b}\n"); // exc, inh
+        (par, con)
+    }
+
+    fn decay_spike_trains(tau_a: i32, tau_b: i32) -> (Vec<i32>, Vec<i32>, [i32; 2]) {
+        let (par, con) = decay_cfg(tau_a, tau_b);
+        let mut net = IqNetwork::from_text(&par, &con);
+        net.set_biascurrent(0, 13);
+        net.set_biascurrent(1, 12);
+        let (mut s0, mut s1) = (Vec::new(), Vec::new());
+        for t in 0..150 {
+            net.send_synapse();
+            if net.get_is_firing(0) != 0 {
+                s0.push(t);
+            }
+            if net.get_is_firing(1) != 0 {
+                s1.push(t);
+            }
+        }
+        (s0, s1, [net.get_decay_threshold(0), net.get_decay_threshold(1)])
+    }
+
+    #[test]
+    fn accumulator_reports_pre_decay_input() {
+        // One presynaptic spike deposits weight=10 into neuron 1. With the leak
+        // at the head of the step, the accumulator read after that step is the
+        // undecayed 10 (the pre-fix trailing decay returned 10 - (10>>3) = 9).
+        let (par, con) = decay_cfg(8, 8);
+        let mut net = IqNetwork::from_text(&par, &con);
+        net.set_biascurrent(0, 0);
+        net.set_biascurrent(1, 0);
+        net.set_is_firing(0, 1); // force neuron 0 to deposit into neuron 1
+        net.send_synapse();
+        assert_eq!(net.get_current_accumulator(1), 10);
+    }
+
+    #[test]
+    fn golden_spike_trains_timer_threshold_zero() {
+        // tau 8/8 <= surrogate: decay every step (timer_threshold == 0).
+        let (s0, s1, thr) = decay_spike_trains(8, 8);
+        assert_eq!(thr, [0, 0]);
+        assert_eq!(s0, vec![18, 40, 61, 83, 105, 126, 147]);
+        assert_eq!(s1, vec![20, 35, 49, 66, 85, 100, 114, 131, 149]);
+    }
+
+    #[test]
+    fn golden_spike_trains_timer_threshold_positive() {
+        // tau 32/64 > surrogate: periodic decay (timer_threshold > 0).
+        let (s0, s1, thr) = decay_spike_trains(32, 64);
+        assert_eq!(thr, [8, 4]);
+        assert_eq!(s0, vec![18]);
+        assert_eq!(s1, vec![20, 30, 42, 57, 77, 98, 119, 141]);
     }
 
     #[test]

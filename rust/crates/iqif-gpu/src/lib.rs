@@ -2,10 +2,11 @@
 //!
 //! `GpuNetwork` builds from the same text formats as the CPU backend and, via
 //! `iqif_core`'s snapshot/CSC export, uploads a bit-exact copy of the network to
-//! the device. One timestep is two compute passes — `propagate` (gather spikes
-//! over the transposed adjacency) then `update_state` — and all per-neuron state
-//! stays resident on the GPU between steps; the host reads it back only in bulk,
-//! on demand (see `rust/PLAN.md`, Phase 3).
+//! the device. One timestep is three compute passes — `decay` (leak the synapse
+//! carry-over), `propagate` (gather spikes over the transposed adjacency), then
+//! `update_state` — and all per-neuron state stays resident on the GPU between
+//! steps; the host reads it back only in bulk, on demand (see `rust/PLAN.md`,
+//! Phase 3).
 
 use bytemuck::{Pod, Zeroable};
 use iqif_core::{IqNetwork, NeuronSnapshot};
@@ -119,6 +120,7 @@ pub struct GpuNetwork {
     core: IqNetwork,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    decay: wgpu::ComputePipeline,
     propagate: wgpu::ComputePipeline,
     update: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
@@ -321,6 +323,7 @@ impl GpuNetwork {
                 cache: None,
             })
         };
+        let decay = make_pipeline("decay");
         let propagate = make_pipeline("propagate");
         let update = make_pipeline("update_state");
 
@@ -328,6 +331,7 @@ impl GpuNetwork {
             core,
             device,
             queue,
+            decay,
             propagate,
             update,
             bind_group,
@@ -351,10 +355,10 @@ impl GpuNetwork {
         i >= 0 && (i as usize) < self.num_neurons
     }
 
-    /// One timestep: flush any pending host writes, then `propagate` +
-    /// `update_state` as two compute passes (the pass boundary orders the
-    /// accumulator and `is_firing` handoff). State stays on the device; the
-    /// host cache is marked stale so the next read pulls fresh values.
+    /// One timestep: flush any pending host writes, then `decay` + `propagate` +
+    /// `update_state` as three compute passes (the pass boundaries order the leak,
+    /// the accumulator gather, and the `is_firing` handoff). State stays on the
+    /// device; the host cache is marked stale so the next read pulls fresh values.
     pub fn step(&self) {
         {
             let mut g = self.sync.lock().unwrap();
@@ -366,7 +370,11 @@ impl GpuNetwork {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("iqif-step") });
-        for (label, pipeline) in [("propagate", &self.propagate), ("update_state", &self.update)] {
+        for (label, pipeline) in [
+            ("decay", &self.decay),
+            ("propagate", &self.propagate),
+            ("update_state", &self.update),
+        ] {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some(label),
                 timestamp_writes: None,
