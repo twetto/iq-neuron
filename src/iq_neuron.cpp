@@ -60,12 +60,12 @@ void iq_neuron::set_vmin(int vmin)
 
 void iq_neuron::update_state(int external_current)
 {
-    // Capture the Input Current (undecayed sum of spikes from t-1)
+    // Read the true post-synaptic current this neuron integrates: the decayed
+    // carry-over from t-1 plus this step's freshly-accumulated spikes. Decay is
+    // applied at the head of send_synapse() (before accumulation), so the
+    // accumulator now persists this exact value and stays externally readable.
     int current_val = _synapse.current_accumulator;
 
-    // Decay the accumulator (Preparing it for t+1)
-    _synapse.step();
-    
     // Solve ODE
     int f;
     int total_input = current_val + external_current;

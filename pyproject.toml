@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "python-iqif"
-version = "0.3.0"
+version = "0.4.0"
 description = "A Python library for the Integer Quadratic Integrate-and-Fire neuron API."
 readme = "README.md"
 license = {text = "MIT"}

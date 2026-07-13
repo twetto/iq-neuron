@@ -194,6 +194,16 @@ int iq_network::num_neurons()
 
 void iq_network::send_synapse()
 {
+    // Decay the residual carried from the previous step BEFORE new spikes are
+    // accumulated. Moving the leak to the head of the step (rather than the tail
+    // of update_state) leaves current_accumulator holding the true input the
+    // neuron integrates, so get_current_accumulator() observes it instead of the
+    // post-decay residual. Same recurrence I_t = decay(I_{t-1}) + S_t.
+    #pragma omp parallel for
+    for(int i = 0; i < _num_neurons; i++) {
+        (_neurons + i)->_synapse.step();
+    }
+
     // Propagate Spikes (using is_firing from t-1)
     #pragma omp parallel for
     for(int i = 0; i < _num_neurons; i++) {
@@ -213,7 +223,7 @@ void iq_network::send_synapse()
         }
     }
 
-    // Update Neurons (Decay + Solve + Set Fire for t)
+    // Update Neurons (Solve + Set Fire for t; decay already applied above)
     #pragma omp parallel for
     for(int i = 0; i < _num_neurons; i++) {
         (_neurons + i)->update_state(*(_biascurrent + i));
