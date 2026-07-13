@@ -257,6 +257,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
+name = "camera-geometry"
+version = "0.1.0"
+source = "git+https://github.com/twetto/Rudolf-V.git?rev=bc262650974a9e2abcb74ef1ee77c9145a4234b5#bc262650974a9e2abcb74ef1ee77c9145a4234b5"
+dependencies = [
+ "nalgebra",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1985,9 +1993,10 @@ checksum = "47b34b781b31e5d73e9fbc8689c70551fd1ade9a19e3e28cfec8580a79290cc4"
 [[package]]
 name = "rudolf-v"
 version = "0.1.0"
-source = "git+https://github.com/twetto/Rudolf-V.git?rev=9e8ad8ccbb4d0e601ccb76c22ce9a6eb00b46e10#9e8ad8ccbb4d0e601ccb76c22ce9a6eb00b46e10"
+source = "git+https://github.com/twetto/Rudolf-V.git?rev=bc262650974a9e2abcb74ef1ee77c9145a4234b5#bc262650974a9e2abcb74ef1ee77c9145a4234b5"
 dependencies = [
  "bytemuck",
+ "camera-geometry",
  "image",
  "minifb",
  "nalgebra",

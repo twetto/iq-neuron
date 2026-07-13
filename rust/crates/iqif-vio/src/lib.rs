@@ -30,6 +30,17 @@ const S_SCALE: f64 = 2000.0; // shadow units per scaled-g unit
 const N_STEPS: usize = 6000;
 const N_VAL: usize = 6;
 
+/// Number of relaxation ticks for the open-loop PC solve. Defaults to
+/// [`N_STEPS`]; the `IQIF_PC_STEPS` env var overrides it (e.g. to trade a little
+/// accuracy for a faster live demo — solve time is linear in this count).
+fn pc_steps() -> usize {
+    std::env::var("IQIF_PC_STEPS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(N_STEPS)
+}
+
 /// One tracked feature: normalized (calibrated, undistorted) image coordinate
 /// `(x, y)`, metric depth `z` (from sparse stereo), and measured flow `(ux, uy)`.
 #[derive(Clone, Copy, Debug)]
@@ -70,6 +81,84 @@ pub fn build_system(features: &[FeatureObs]) -> (DMatrix<f64>, DVector<f64>) {
         }
         u[2 * i] = f.ux;
         u[2 * i + 1] = f.uy;
+    }
+    (g, u)
+}
+
+/// One tracked feature for the **bearing-first** (spherical) motion field: the
+/// unit bearing `b` (calibrated, fisheye-aware), the inverse range
+/// `inv_r = 1/|P|`, and the bearing flow `bdot = db/dt` (per second).
+///
+/// Inverse range (not range) is carried on purpose: the spherical field only
+/// ever needs `1/r`, and it comes straight from the stereo inverse depth as
+/// `inv_r = b_z · inv_depth` (since `r = Z / b_z` and `inv_depth = 1/Z`). That
+/// is a single multiply — no reciprocal round-trip through `Z`, and far points
+/// (`inv_depth → 0`) decay smoothly to zero translational weight instead of
+/// blowing up an intermediate `Z`.
+///
+/// Unlike [`FeatureObs`] — which lives on the pinhole-normalized `z = 1` plane
+/// and degrades at wide field angles — this parameterization is exact for any
+/// bearing direction, so it stays correct across a fisheye's full FOV.
+#[derive(Clone, Copy, Debug)]
+pub struct BearingObs {
+    pub b: [f64; 3],
+    pub inv_r: f64,
+    pub bdot: [f64; 3],
+}
+
+/// One feature's `3x6` spherical motion-field block.
+///
+/// A stationary point seen by a camera moving with linear velocity `v` and
+/// angular velocity `w` induces bearing flow
+///
+/// ```text
+/// bdot = -(1/r)(I - b bᵀ) v + [b]_× w
+/// ```
+///
+/// (`[b]_×` = skew-symmetric of `b`, so `[b]_× w = b × w`). Both terms are
+/// tangent to the unit sphere (⊥ b), hence the radial row is structurally zero.
+/// Columns are `[v1 v2 v3 w1 w2 w3]`; rows are the three components of `bdot`.
+///
+/// Takes `inv_r = 1/r` directly (see [`BearingObs`]); no reciprocal is formed
+/// here.
+pub fn bearing_field_rows(b: [f64; 3], inv_r: f64) -> [[f64; 6]; 3] {
+    let [bx, by, bz] = b;
+    // A_v = -(1/r)(I - b bᵀ)   (tangential projector, scaled)
+    let a = [
+        [-inv_r * (1.0 - bx * bx), inv_r * bx * by, inv_r * bx * bz],
+        [inv_r * bx * by, -inv_r * (1.0 - by * by), inv_r * by * bz],
+        [inv_r * bx * bz, inv_r * by * bz, -inv_r * (1.0 - bz * bz)],
+    ];
+    // A_w = [b]_×
+    [
+        [a[0][0], a[0][1], a[0][2], 0.0, -bz, by],
+        [a[1][0], a[1][1], a[1][2], bz, 0.0, -bx],
+        [a[2][0], a[2][1], a[2][2], -by, bx, 0.0],
+    ]
+}
+
+/// Stack the per-feature spherical blocks into `U = G m` (`G` is `3N x 6`).
+///
+/// The measured bearing flow is projected onto the tangent plane at `b`
+/// (`(I - b bᵀ) bdot`) so the unmodelable radial component of the
+/// finite-difference flow does not leak into the solve.
+pub fn build_system_bearing(obs: &[BearingObs]) -> (DMatrix<f64>, DVector<f64>) {
+    let n = obs.len();
+    let mut g = DMatrix::<f64>::zeros(3 * n, 6);
+    let mut u = DVector::<f64>::zeros(3 * n);
+    for (i, o) in obs.iter().enumerate() {
+        let blk = bearing_field_rows(o.b, o.inv_r);
+        for row in 0..3 {
+            for c in 0..6 {
+                g[(3 * i + row, c)] = blk[row][c];
+            }
+        }
+        let [bx, by, bz] = o.b;
+        let d = o.bdot;
+        let radial = bx * d[0] + by * d[1] + bz * d[2];
+        u[3 * i] = d[0] - radial * bx;
+        u[3 * i + 1] = d[1] - radial * by;
+        u[3 * i + 2] = d[2] - radial * bz;
     }
     (g, u)
 }
@@ -320,7 +409,7 @@ fn pc_relax_mode(
     let mut res_p = vec![0.0_f64; n_rows];
     let mut res_n = vec![0.0_f64; n_rows];
 
-    for _step in 0..N_STEPS {
+    for _step in 0..pc_steps() {
         let g = read_g(&net, &cum_p, &cum_n, &off_p, &off_n, vp, vn);
         let eps = &u_s - &(&q * &g); // whitened-space error
         for k in 0..n_rows {
@@ -364,6 +453,34 @@ pub fn solve_egomotion_mode(
     let (g_mat, u) = build_system(features);
     let m = pc_relax_mode(&g_mat, &u, g_init, mode);
     [m[0], m[1], m[2], m[3], m[4], m[5]]
+}
+
+/// Solve 6-DoF motion `m = [v; omega]` from **bearing-first** observations — the
+/// wide-FOV / fisheye-correct formulation. Identical spiking relaxation to
+/// [`solve_egomotion`]; only the design matrix (spherical, `3N x 6`) differs.
+pub fn solve_egomotion_bearing(obs: &[BearingObs], g_init: &[f64; N_VAL]) -> [f64; 6] {
+    let (g_mat, u) = build_system_bearing(obs);
+    let m = pc_relax(&g_mat, &u, g_init);
+    [m[0], m[1], m[2], m[3], m[4], m[5]]
+}
+
+/// Bearing-first de-rotation solve: given a KNOWN camera-frame angular velocity
+/// `omega` (e.g. from a gyro), subtract the rotational bearing flow `[b]_× omega`
+/// and solve only the 3-DoF translation `v`. The spherical translational block
+/// `-(1/r)(I - b bᵀ)` stays exact across the fisheye's full FOV, and removing
+/// rotation lifts the v↔ω ambiguity so the forward axis is far better
+/// conditioned. Mirrors [`solve_translation_known_rotation`] on the sphere.
+pub fn solve_translation_known_rotation_bearing(
+    obs: &[BearingObs],
+    omega: &[f64; 3],
+    g_init: &[f64; 3],
+) -> [f64; 3] {
+    let (g6, u) = build_system_bearing(obs);
+    let g_v = g6.columns(0, 3).into_owned(); // -(1/r)(I - b bᵀ) : translation
+    let g_w = g6.columns(3, 3).into_owned(); // [b]_×             : rotation
+    let u_res = &u - &(g_w * DVector::from_row_slice(omega)); // de-rotated flow
+    let v = pc_relax(&g_v, &u_res, g_init);
+    [v[0], v[1], v[2]]
 }
 
 // ── Inhibition-dominated spike-coding-network solver (MKM 2020) ─────────────
@@ -766,16 +883,39 @@ pub mod frontend_adapter {
     use rudolf_v::stereo::StereoMatch;
     use std::collections::HashMap;
 
-    #[derive(Default)]
     pub struct FlowDepthAdapter {
         prev_norm: HashMap<u64, (f64, f64)>,
+        prev_bearing: HashMap<u64, [f64; 3]>,
+        /// Reject bearings whose `z` (= cos of the angle from the optical axis)
+        /// falls below this. Gates observations to a central field-of-view cone.
+        min_bearing_z: f64,
+    }
+
+    impl Default for FlowDepthAdapter {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl FlowDepthAdapter {
         pub fn new() -> Self {
             Self {
                 prev_norm: HashMap::new(),
+                prev_bearing: HashMap::new(),
+                // Accept the whole front hemisphere by default (z > 0).
+                min_bearing_z: 1e-6,
             }
+        }
+
+        /// Restrict accepted features to a central field-of-view cone of
+        /// half-angle `deg` from the optical axis. Essential for wide-FOV fisheye
+        /// cameras: peripheral rays get large pinhole-normalized coordinates, so
+        /// small tracking errors there inject big spurious flow into the
+        /// (unweighted) motion-field least-squares. A no-op for narrow pinhole
+        /// rigs whose features already sit well inside the cone.
+        pub fn with_fov_limit_deg(mut self, deg: f64) -> Self {
+            self.min_bearing_z = deg.to_radians().cos();
+            self
         }
 
         /// Assemble observations for the current frame. `features` and `matches`
@@ -794,7 +934,19 @@ pub mod frontend_adapter {
             let mut obs = Vec::new();
             let mut curr_norm = HashMap::with_capacity(features.len());
             for (f, m) in features.iter().zip(matches.iter()) {
-                let (xn, yn) = cam.normalize_undistorted(f.x as f64, f.y as f64);
+                // Unproject through the calibrated model (pinhole/radtan/fisheye)
+                // to a unit bearing, then drop to pinhole-normalized (x/z, y/z)
+                // for the motion-field solver. Skip rays at/behind the horizon
+                // (z <= 0), which a fisheye's wide FOV can produce but the
+                // z=1-plane parameterization cannot represent.
+                let Some(b) = cam.pixel_to_bearing(f.x as f64, f.y as f64) else {
+                    continue;
+                };
+                let b = b.vector();
+                if b.z < self.min_bearing_z {
+                    continue;
+                }
+                let (xn, yn) = (b.x / b.z, b.y / b.z);
                 curr_norm.insert(f.id, (xn, yn));
                 if !m.matched || m.inv_depth <= 0.0 || dt <= 0.0 {
                     continue;
@@ -814,9 +966,60 @@ pub mod frontend_adapter {
             obs
         }
 
+        /// Assemble **bearing-first** observations for the current frame (the
+        /// wide-FOV / fisheye-correct path). Each surviving track yields a
+        /// [`BearingObs`] with the unit bearing `b`, the inverse range
+        /// `inv_r = b_z · inv_depth` (formed directly, no reciprocal round-trip
+        /// through `Z`), and the bearing flow `bdot = (b - b_prev)/dt`. The
+        /// central-FOV gate still applies (mostly a safety valve here, since the
+        /// spherical field itself is well-behaved at wide angles).
+        pub fn observe_bearing(
+            &mut self,
+            features: &[Feature],
+            matches: &[StereoMatch],
+            cam: &CameraIntrinsics,
+            dt: f64,
+        ) -> Vec<super::BearingObs> {
+            let mut obs = Vec::new();
+            let mut curr = HashMap::with_capacity(features.len());
+            for (f, m) in features.iter().zip(matches.iter()) {
+                let Some(b) = cam.pixel_to_bearing(f.x as f64, f.y as f64) else {
+                    continue;
+                };
+                let b = b.vector();
+                if b.z < self.min_bearing_z {
+                    continue;
+                }
+                let b_cur = [b.x, b.y, b.z];
+                curr.insert(f.id, b_cur);
+                if !m.matched || m.inv_depth <= 0.0 || dt <= 0.0 {
+                    continue;
+                }
+                // 1/range straight from the stereo inverse depth: since
+                // r = Z / b_z and inv_depth = 1/Z, inv_r = b_z · inv_depth. One
+                // multiply — no reciprocal round-trip, graceful for far points.
+                let inv_r = b.z * m.inv_depth as f64;
+                if let Some(&b_prev) = self.prev_bearing.get(&f.id) {
+                    let bdot = [
+                        (b_cur[0] - b_prev[0]) / dt,
+                        (b_cur[1] - b_prev[1]) / dt,
+                        (b_cur[2] - b_prev[2]) / dt,
+                    ];
+                    obs.push(super::BearingObs {
+                        b: b_cur,
+                        inv_r,
+                        bdot,
+                    });
+                }
+            }
+            self.prev_bearing = curr;
+            obs
+        }
+
         /// Forget all tracked positions (e.g. on a tracking reset).
         pub fn reset(&mut self) {
             self.prev_norm.clear();
+            self.prev_bearing.clear();
         }
     }
 }
@@ -1010,6 +1213,9 @@ mod tests {
         let v6 = [v[0], v[1], v[2], 0.0, 0.0, 0.0];
         let v_ang = v_dir_error_deg(&v6, &m_gt);
         println!("[closed-loop] v_dir_err = {v_ang:.4} deg, v = {v:?}");
-        assert!(v_ang < 5.0, "closed-loop translation direction error: {v_ang} deg");
+        assert!(
+            v_ang < 5.0,
+            "closed-loop translation direction error: {v_ang} deg"
+        );
     }
 }
