@@ -73,7 +73,12 @@ fn build_pairs() -> Vec<Pair> {
             }
             let shift = shifts[s % shifts.len()];
             s += 1;
-            pairs.push(Pair { a, b, shift, _pad: 0 });
+            pairs.push(Pair {
+                a,
+                b,
+                shift,
+                _pad: 0,
+            });
         }
     }
     pairs
@@ -174,13 +179,20 @@ pub fn check_integer_semantics_on(backends: wgpu::Backends) -> Result<SanityRepo
         label: Some("sanity-bind-group"),
         layout: &pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: input.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: output.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: output.as_entire_binding(),
+            },
         ],
     });
 
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("sanity-encoder") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("sanity-encoder"),
+    });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("sanity-pass"),
@@ -264,7 +276,11 @@ mod tests {
         for op in ["shr", "div", "rem", "mul", "rem_via_div"] {
             let n = r.mismatches.iter().filter(|m| m.op == op).count();
             if n > 0 {
-                let tag = if RELIED_ON_OPS.contains(&op) { "RELIED-ON" } else { "unused" };
+                let tag = if RELIED_ON_OPS.contains(&op) {
+                    "RELIED-ON"
+                } else {
+                    "unused"
+                };
                 eprintln!("  [{label}] {op}: {n} mismatches ({tag})");
             }
         }

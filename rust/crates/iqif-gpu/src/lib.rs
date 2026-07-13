@@ -205,9 +205,15 @@ impl GpuNetwork {
         // Storage buffers must be non-empty even for an edgeless network; the
         // offsets keep every gather loop empty so the dummy is never read.
         if edges.is_empty() {
-            edges.push(GpuEdge { source: 0, weight: 0 });
+            edges.push(GpuEdge {
+                source: 0,
+                weight: 0,
+            });
         }
-        let meta = GpuMeta { num_neurons: num_neurons as u32, _pad: [0; 3] };
+        let meta = GpuMeta {
+            num_neurons: num_neurons as u32,
+            _pad: [0; 3],
+        };
 
         let (device, queue) = acquire_device()?;
 
@@ -292,18 +298,35 @@ impl GpuNetwork {
             label: Some("iqif-bind-group"),
             layout: &layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: params_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: state_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: offsets_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 3, resource: edges_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 4, resource: meta_buf.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: params_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: state_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: offsets_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: edges_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: meta_buf.as_entire_binding(),
+                },
             ],
         });
 
         // The kernel hardcodes `@workgroup_size(64)`; patch it for tuning. The
         // `if (i >= num_neurons) return;` guard makes any size correct.
-        let shader_src = include_str!("step.wgsl")
-            .replace("@workgroup_size(64)", &format!("@workgroup_size({workgroup_size})"));
+        let shader_src = include_str!("step.wgsl").replace(
+            "@workgroup_size(64)",
+            &format!("@workgroup_size({workgroup_size})"),
+        );
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("iqif-step"),
             source: wgpu::ShaderSource::Wgsl(shader_src.into()),
@@ -343,7 +366,11 @@ impl GpuNetwork {
             state_bytes,
             workgroups: num_neurons.div_ceil(workgroup_size as usize) as u32,
             // Cache starts coherent with the just-uploaded initial state.
-            sync: Mutex::new(HostSync { state, fresh: true, dirty: false }),
+            sync: Mutex::new(HostSync {
+                state,
+                fresh: true,
+                dirty: false,
+            }),
         })
     }
 
@@ -363,13 +390,16 @@ impl GpuNetwork {
         {
             let mut g = self.sync.lock().unwrap();
             if g.dirty {
-                self.queue.write_buffer(&self.state_buf, 0, bytemuck::cast_slice(&g.state));
+                self.queue
+                    .write_buffer(&self.state_buf, 0, bytemuck::cast_slice(&g.state));
                 g.dirty = false;
             }
         }
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("iqif-step") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("iqif-step"),
+            });
         for (label, pipeline) in [
             ("decay", &self.decay),
             ("propagate", &self.propagate),
@@ -399,9 +429,11 @@ impl GpuNetwork {
     /// Bulk-copy the state buffer to the host (one PCIe transfer). No locking;
     /// callers hold the `sync` guard.
     fn read_state_raw(&self) -> Vec<GpuState> {
-        let mut encoder = self.device.create_command_encoder(
-            &wgpu::CommandEncoderDescriptor { label: Some("iqif-readback") },
-        );
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("iqif-readback"),
+            });
         encoder.copy_buffer_to_buffer(&self.state_buf, 0, &self.readback_buf, 0, self.state_bytes);
         self.queue.submit(Some(encoder.finish()));
 
@@ -444,9 +476,13 @@ impl GpuNetwork {
     fn reupload_params(&self) {
         let snaps = self.core.neuron_snapshots();
         let bias = self.core.biascurrents();
-        let params: Vec<GpuParams> =
-            snaps.iter().enumerate().map(|(i, s)| params_of(s, bias[i])).collect();
-        self.queue.write_buffer(&self.params_buf, 0, bytemuck::cast_slice(&params));
+        let params: Vec<GpuParams> = snaps
+            .iter()
+            .enumerate()
+            .map(|(i, s)| params_of(s, bias[i]))
+            .collect();
+        self.queue
+            .write_buffer(&self.params_buf, 0, bytemuck::cast_slice(&params));
     }
 
     /// Re-derive the CSC edge buffer from the core and upload it. Edge *count*
@@ -460,9 +496,13 @@ impl GpuNetwork {
             .map(|(&source, &weight)| GpuEdge { source, weight })
             .collect();
         if edges.is_empty() {
-            edges.push(GpuEdge { source: 0, weight: 0 });
+            edges.push(GpuEdge {
+                source: 0,
+                weight: 0,
+            });
         }
-        self.queue.write_buffer(&self.edges_buf, 0, bytemuck::cast_slice(&edges));
+        self.queue
+            .write_buffer(&self.edges_buf, 0, bytemuck::cast_slice(&edges));
     }
 
     /// Re-initialize one neuron's GPU state from the core (used after
@@ -624,7 +664,16 @@ impl GpuNetwork {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn set_neuron(&mut self, i: i32, rest: i32, threshold: i32, reset: i32, a: i32, b: i32, noise: i32) -> i32 {
+    pub fn set_neuron(
+        &mut self,
+        i: i32,
+        rest: i32,
+        threshold: i32,
+        reset: i32,
+        a: i32,
+        b: i32,
+        noise: i32,
+    ) -> i32 {
         let r = self.core.set_neuron(i, rest, threshold, reset, a, b, noise);
         if r == 1 {
             self.reupload_params();

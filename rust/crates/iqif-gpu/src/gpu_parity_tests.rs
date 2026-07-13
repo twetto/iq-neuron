@@ -15,10 +15,14 @@ fn cpu_potentials(core: &IqNetwork) -> Vec<i32> {
     (0..core.num_neurons()).map(|i| core.potential(i)).collect()
 }
 fn cpu_accumulators(core: &IqNetwork) -> Vec<i32> {
-    (0..core.num_neurons()).map(|i| core.get_current_accumulator(i)).collect()
+    (0..core.num_neurons())
+        .map(|i| core.get_current_accumulator(i))
+        .collect()
 }
 fn cpu_firing(core: &IqNetwork) -> Vec<i32> {
-    (0..core.num_neurons()).map(|i| core.get_is_firing(i)).collect()
+    (0..core.num_neurons())
+        .map(|i| core.get_is_firing(i))
+        .collect()
 }
 
 /// Step CPU core and GPU network in lockstep for `steps`, asserting potentials,
@@ -65,7 +69,10 @@ fn feedforward_network_with_firing_matches_cpu() {
     core.set_biascurrent(0, 25);
 
     if let Some(spikes) = run_parity(core, 200) {
-        assert!(spikes > 0, "test network never fired; propagate path not exercised");
+        assert!(
+            spikes > 0,
+            "test network never fired; propagate path not exercised"
+        );
         eprintln!("feed-forward parity OK over 200 steps, {spikes} spikes");
     }
 }
@@ -119,18 +126,29 @@ fn cache_backed_api_matches_cpu() {
                 gpu.get_synapse_timer(i),
                 "synapse timer n{i} t{t}"
             );
-            assert_eq!(core.get_is_firing(i), gpu.get_is_firing(i), "is_firing n{i} t{t}");
+            assert_eq!(
+                core.get_is_firing(i),
+                gpu.get_is_firing(i),
+                "is_firing n{i} t{t}"
+            );
         }
         total_spikes += core.get_is_firing(0) as i64;
     }
 
     // Derived params getter (the log2/log10 path) must match.
     for i in 0..2 {
-        assert_eq!(core.get_decay_threshold(i), gpu.get_decay_threshold(i), "decay_threshold n{i}");
+        assert_eq!(
+            core.get_decay_threshold(i),
+            gpu.get_decay_threshold(i),
+            "decay_threshold n{i}"
+        );
     }
 
     // Read-and-reset bulk spike counts must agree (neuron 0 fired by now).
-    assert!(total_spikes > 0, "neuron 0 never fired; spike-count path not exercised");
+    assert!(
+        total_spikes > 0,
+        "neuron 0 never fired; spike-count path not exercised"
+    );
     assert_eq!(
         core.get_all_spike_counts(),
         gpu.get_all_spike_counts(),

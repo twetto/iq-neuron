@@ -24,7 +24,16 @@ trait Backend: Send + Sync {
     fn send_synapse(&mut self);
     fn set_biascurrent(&mut self, i: i32, v: i32) -> i32;
     #[allow(clippy::too_many_arguments)]
-    fn set_neuron(&mut self, i: i32, rest: i32, threshold: i32, reset: i32, a: i32, b: i32, noise: i32) -> i32;
+    fn set_neuron(
+        &mut self,
+        i: i32,
+        rest: i32,
+        threshold: i32,
+        reset: i32,
+        a: i32,
+        b: i32,
+        noise: i32,
+    ) -> i32;
     fn set_weight(&mut self, pre: i32, post: i32, weight: i32, tau: i32) -> i32;
     fn set_surrogate_tau_all(&mut self, s_tau: i32) -> i32;
     fn set_surrogate_tau_one(&mut self, i: i32, s_tau: i32) -> i32;
@@ -51,32 +60,87 @@ trait Backend: Send + Sync {
 // `IqNetwork::method(self, ..)` so it resolves to the inherent method rather
 // than recursing into this trait impl.
 impl Backend for IqNetwork {
-    fn num_neurons(&self) -> i32 { IqNetwork::num_neurons(self) }
-    fn send_synapse(&mut self) { IqNetwork::send_synapse(self) }
-    fn set_biascurrent(&mut self, i: i32, v: i32) -> i32 { IqNetwork::set_biascurrent(self, i, v) }
-    fn set_neuron(&mut self, i: i32, rest: i32, threshold: i32, reset: i32, a: i32, b: i32, noise: i32) -> i32 {
+    fn num_neurons(&self) -> i32 {
+        IqNetwork::num_neurons(self)
+    }
+    fn send_synapse(&mut self) {
+        IqNetwork::send_synapse(self)
+    }
+    fn set_biascurrent(&mut self, i: i32, v: i32) -> i32 {
+        IqNetwork::set_biascurrent(self, i, v)
+    }
+    fn set_neuron(
+        &mut self,
+        i: i32,
+        rest: i32,
+        threshold: i32,
+        reset: i32,
+        a: i32,
+        b: i32,
+        noise: i32,
+    ) -> i32 {
         IqNetwork::set_neuron(self, i, rest, threshold, reset, a, b, noise)
     }
-    fn set_weight(&mut self, pre: i32, post: i32, weight: i32, tau: i32) -> i32 { IqNetwork::set_weight(self, pre, post, weight, tau) }
-    fn set_surrogate_tau_all(&mut self, s_tau: i32) -> i32 { IqNetwork::set_surrogate_tau_all(self, s_tau) }
-    fn set_surrogate_tau_one(&mut self, i: i32, s_tau: i32) -> i32 { IqNetwork::set_surrogate_tau_one(self, i, s_tau) }
-    fn get_surrogate_tau(&self, i: i32) -> i32 { IqNetwork::get_surrogate_tau(self, i) }
-    fn get_current_accumulator(&self, i: i32) -> i32 { IqNetwork::get_current_accumulator(self, i) }
-    fn set_current_accumulator(&mut self, i: i32, v: i32) -> i32 { IqNetwork::set_current_accumulator(self, i, v) }
-    fn get_all_current_accumulators(&self) -> Vec<i32> { IqNetwork::get_all_current_accumulators(self) }
-    fn set_all_current_accumulators(&mut self, values: &[i32]) { IqNetwork::set_all_current_accumulators(self, values) }
-    fn get_decay_threshold(&self, i: i32) -> i32 { IqNetwork::get_decay_threshold(self, i) }
-    fn set_vmax(&mut self, i: i32, v: i32) -> i32 { IqNetwork::set_vmax(self, i, v) }
-    fn set_vmin(&mut self, i: i32, v: i32) -> i32 { IqNetwork::set_vmin(self, i, v) }
-    fn potential(&self, i: i32) -> i32 { IqNetwork::potential(self, i) }
-    fn set_potential(&mut self, i: i32, v: i32) -> i32 { IqNetwork::set_potential(self, i, v) }
-    fn get_is_firing(&self, i: i32) -> i32 { IqNetwork::get_is_firing(self, i) }
-    fn set_is_firing(&mut self, i: i32, v: i32) -> i32 { IqNetwork::set_is_firing(self, i, v) }
-    fn get_synapse_timer(&self, i: i32) -> i32 { IqNetwork::get_synapse_timer(self, i) }
-    fn set_synapse_timer(&mut self, i: i32, v: i32) -> i32 { IqNetwork::set_synapse_timer(self, i, v) }
-    fn spike_count(&mut self, i: i32) -> i32 { IqNetwork::spike_count(self, i) }
-    fn get_all_spike_counts(&mut self) -> Vec<i32> { IqNetwork::get_all_spike_counts(self) }
-    fn spike_rate(&mut self, i: i32) -> f32 { IqNetwork::spike_rate(self, i) }
+    fn set_weight(&mut self, pre: i32, post: i32, weight: i32, tau: i32) -> i32 {
+        IqNetwork::set_weight(self, pre, post, weight, tau)
+    }
+    fn set_surrogate_tau_all(&mut self, s_tau: i32) -> i32 {
+        IqNetwork::set_surrogate_tau_all(self, s_tau)
+    }
+    fn set_surrogate_tau_one(&mut self, i: i32, s_tau: i32) -> i32 {
+        IqNetwork::set_surrogate_tau_one(self, i, s_tau)
+    }
+    fn get_surrogate_tau(&self, i: i32) -> i32 {
+        IqNetwork::get_surrogate_tau(self, i)
+    }
+    fn get_current_accumulator(&self, i: i32) -> i32 {
+        IqNetwork::get_current_accumulator(self, i)
+    }
+    fn set_current_accumulator(&mut self, i: i32, v: i32) -> i32 {
+        IqNetwork::set_current_accumulator(self, i, v)
+    }
+    fn get_all_current_accumulators(&self) -> Vec<i32> {
+        IqNetwork::get_all_current_accumulators(self)
+    }
+    fn set_all_current_accumulators(&mut self, values: &[i32]) {
+        IqNetwork::set_all_current_accumulators(self, values)
+    }
+    fn get_decay_threshold(&self, i: i32) -> i32 {
+        IqNetwork::get_decay_threshold(self, i)
+    }
+    fn set_vmax(&mut self, i: i32, v: i32) -> i32 {
+        IqNetwork::set_vmax(self, i, v)
+    }
+    fn set_vmin(&mut self, i: i32, v: i32) -> i32 {
+        IqNetwork::set_vmin(self, i, v)
+    }
+    fn potential(&self, i: i32) -> i32 {
+        IqNetwork::potential(self, i)
+    }
+    fn set_potential(&mut self, i: i32, v: i32) -> i32 {
+        IqNetwork::set_potential(self, i, v)
+    }
+    fn get_is_firing(&self, i: i32) -> i32 {
+        IqNetwork::get_is_firing(self, i)
+    }
+    fn set_is_firing(&mut self, i: i32, v: i32) -> i32 {
+        IqNetwork::set_is_firing(self, i, v)
+    }
+    fn get_synapse_timer(&self, i: i32) -> i32 {
+        IqNetwork::get_synapse_timer(self, i)
+    }
+    fn set_synapse_timer(&mut self, i: i32, v: i32) -> i32 {
+        IqNetwork::set_synapse_timer(self, i, v)
+    }
+    fn spike_count(&mut self, i: i32) -> i32 {
+        IqNetwork::spike_count(self, i)
+    }
+    fn get_all_spike_counts(&mut self) -> Vec<i32> {
+        IqNetwork::get_all_spike_counts(self)
+    }
+    fn spike_rate(&mut self, i: i32) -> f32 {
+        IqNetwork::spike_rate(self, i)
+    }
 }
 
 // GPU backend: forwards to `GpuNetwork`'s inherent methods. State getters/
@@ -84,32 +148,87 @@ impl Backend for IqNetwork {
 // and re-upload GPU buffers from the retained core (see rust/PLAN.md, Phase 4).
 #[cfg(feature = "gpu")]
 impl Backend for iqif_gpu::GpuNetwork {
-    fn num_neurons(&self) -> i32 { iqif_gpu::GpuNetwork::num_neurons(self) }
-    fn send_synapse(&mut self) { iqif_gpu::GpuNetwork::step(self) }
-    fn set_biascurrent(&mut self, i: i32, v: i32) -> i32 { iqif_gpu::GpuNetwork::set_biascurrent(self, i, v) }
-    fn set_neuron(&mut self, i: i32, rest: i32, threshold: i32, reset: i32, a: i32, b: i32, noise: i32) -> i32 {
+    fn num_neurons(&self) -> i32 {
+        iqif_gpu::GpuNetwork::num_neurons(self)
+    }
+    fn send_synapse(&mut self) {
+        iqif_gpu::GpuNetwork::step(self)
+    }
+    fn set_biascurrent(&mut self, i: i32, v: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_biascurrent(self, i, v)
+    }
+    fn set_neuron(
+        &mut self,
+        i: i32,
+        rest: i32,
+        threshold: i32,
+        reset: i32,
+        a: i32,
+        b: i32,
+        noise: i32,
+    ) -> i32 {
         iqif_gpu::GpuNetwork::set_neuron(self, i, rest, threshold, reset, a, b, noise)
     }
-    fn set_weight(&mut self, pre: i32, post: i32, w: i32, tau: i32) -> i32 { iqif_gpu::GpuNetwork::set_weight(self, pre, post, w, tau) }
-    fn set_surrogate_tau_all(&mut self, s: i32) -> i32 { iqif_gpu::GpuNetwork::set_surrogate_tau_all(self, s) }
-    fn set_surrogate_tau_one(&mut self, i: i32, s: i32) -> i32 { iqif_gpu::GpuNetwork::set_surrogate_tau_one(self, i, s) }
-    fn get_surrogate_tau(&self, i: i32) -> i32 { iqif_gpu::GpuNetwork::get_surrogate_tau(self, i) }
-    fn get_current_accumulator(&self, i: i32) -> i32 { iqif_gpu::GpuNetwork::get_current_accumulator(self, i) }
-    fn set_current_accumulator(&mut self, i: i32, v: i32) -> i32 { iqif_gpu::GpuNetwork::set_current_accumulator(self, i, v) }
-    fn get_all_current_accumulators(&self) -> Vec<i32> { iqif_gpu::GpuNetwork::get_all_current_accumulators(self) }
-    fn set_all_current_accumulators(&mut self, values: &[i32]) { iqif_gpu::GpuNetwork::set_all_current_accumulators(self, values) }
-    fn get_decay_threshold(&self, i: i32) -> i32 { iqif_gpu::GpuNetwork::get_decay_threshold(self, i) }
-    fn set_vmax(&mut self, i: i32, v: i32) -> i32 { iqif_gpu::GpuNetwork::set_vmax(self, i, v) }
-    fn set_vmin(&mut self, i: i32, v: i32) -> i32 { iqif_gpu::GpuNetwork::set_vmin(self, i, v) }
-    fn potential(&self, i: i32) -> i32 { iqif_gpu::GpuNetwork::potential(self, i) }
-    fn set_potential(&mut self, i: i32, v: i32) -> i32 { iqif_gpu::GpuNetwork::set_potential(self, i, v) }
-    fn get_is_firing(&self, i: i32) -> i32 { iqif_gpu::GpuNetwork::get_is_firing(self, i) }
-    fn set_is_firing(&mut self, i: i32, v: i32) -> i32 { iqif_gpu::GpuNetwork::set_is_firing(self, i, v) }
-    fn get_synapse_timer(&self, i: i32) -> i32 { iqif_gpu::GpuNetwork::get_synapse_timer(self, i) }
-    fn set_synapse_timer(&mut self, i: i32, v: i32) -> i32 { iqif_gpu::GpuNetwork::set_synapse_timer(self, i, v) }
-    fn spike_count(&mut self, i: i32) -> i32 { iqif_gpu::GpuNetwork::spike_count(self, i) }
-    fn get_all_spike_counts(&mut self) -> Vec<i32> { iqif_gpu::GpuNetwork::get_all_spike_counts(self) }
-    fn spike_rate(&mut self, i: i32) -> f32 { iqif_gpu::GpuNetwork::spike_rate(self, i) }
+    fn set_weight(&mut self, pre: i32, post: i32, w: i32, tau: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_weight(self, pre, post, w, tau)
+    }
+    fn set_surrogate_tau_all(&mut self, s: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_surrogate_tau_all(self, s)
+    }
+    fn set_surrogate_tau_one(&mut self, i: i32, s: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_surrogate_tau_one(self, i, s)
+    }
+    fn get_surrogate_tau(&self, i: i32) -> i32 {
+        iqif_gpu::GpuNetwork::get_surrogate_tau(self, i)
+    }
+    fn get_current_accumulator(&self, i: i32) -> i32 {
+        iqif_gpu::GpuNetwork::get_current_accumulator(self, i)
+    }
+    fn set_current_accumulator(&mut self, i: i32, v: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_current_accumulator(self, i, v)
+    }
+    fn get_all_current_accumulators(&self) -> Vec<i32> {
+        iqif_gpu::GpuNetwork::get_all_current_accumulators(self)
+    }
+    fn set_all_current_accumulators(&mut self, values: &[i32]) {
+        iqif_gpu::GpuNetwork::set_all_current_accumulators(self, values)
+    }
+    fn get_decay_threshold(&self, i: i32) -> i32 {
+        iqif_gpu::GpuNetwork::get_decay_threshold(self, i)
+    }
+    fn set_vmax(&mut self, i: i32, v: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_vmax(self, i, v)
+    }
+    fn set_vmin(&mut self, i: i32, v: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_vmin(self, i, v)
+    }
+    fn potential(&self, i: i32) -> i32 {
+        iqif_gpu::GpuNetwork::potential(self, i)
+    }
+    fn set_potential(&mut self, i: i32, v: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_potential(self, i, v)
+    }
+    fn get_is_firing(&self, i: i32) -> i32 {
+        iqif_gpu::GpuNetwork::get_is_firing(self, i)
+    }
+    fn set_is_firing(&mut self, i: i32, v: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_is_firing(self, i, v)
+    }
+    fn get_synapse_timer(&self, i: i32) -> i32 {
+        iqif_gpu::GpuNetwork::get_synapse_timer(self, i)
+    }
+    fn set_synapse_timer(&mut self, i: i32, v: i32) -> i32 {
+        iqif_gpu::GpuNetwork::set_synapse_timer(self, i, v)
+    }
+    fn spike_count(&mut self, i: i32) -> i32 {
+        iqif_gpu::GpuNetwork::spike_count(self, i)
+    }
+    fn get_all_spike_counts(&mut self) -> Vec<i32> {
+        iqif_gpu::GpuNetwork::get_all_spike_counts(self)
+    }
+    fn spike_rate(&mut self, i: i32) -> f32 {
+        iqif_gpu::GpuNetwork::spike_rate(self, i)
+    }
 }
 
 #[cfg(feature = "gpu")]
@@ -156,18 +275,35 @@ impl iqnet {
                 )))
             }
         };
-        Ok(iqnet { inner, device: device.to_string() })
+        Ok(iqnet {
+            inner,
+            device: device.to_string(),
+        })
     }
 
-    fn num_neurons(&self) -> i32 { self.inner.num_neurons() }
-    fn send_synapse(&mut self) { self.inner.send_synapse() }
+    fn num_neurons(&self) -> i32 {
+        self.inner.num_neurons()
+    }
+    fn send_synapse(&mut self) {
+        self.inner.send_synapse()
+    }
     fn set_biascurrent(&mut self, neuron_index: i32, biascurrent: i32) -> i32 {
         self.inner.set_biascurrent(neuron_index, biascurrent)
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn set_neuron(&mut self, neuron_index: i32, rest: i32, threshold: i32, reset: i32, a: i32, b: i32, noise: i32) -> i32 {
-        self.inner.set_neuron(neuron_index, rest, threshold, reset, a, b, noise)
+    fn set_neuron(
+        &mut self,
+        neuron_index: i32,
+        rest: i32,
+        threshold: i32,
+        reset: i32,
+        a: i32,
+        b: i32,
+        noise: i32,
+    ) -> i32 {
+        self.inner
+            .set_neuron(neuron_index, rest, threshold, reset, a, b, noise)
     }
 
     fn set_weight(&mut self, pre: i32, post: i32, weight: i32, tau: i32) -> i32 {
@@ -182,23 +318,57 @@ impl iqnet {
         }
     }
 
-    fn get_surrogate_tau(&self, neuron_index: i32) -> i32 { self.inner.get_surrogate_tau(neuron_index) }
-    fn get_current_accumulator(&self, neuron_index: i32) -> i32 { self.inner.get_current_accumulator(neuron_index) }
-    fn set_current_accumulator(&mut self, neuron_index: i32, value: i32) -> i32 { self.inner.set_current_accumulator(neuron_index, value) }
-    fn get_all_current_accumulators(&self) -> Vec<i32> { self.inner.get_all_current_accumulators() }
-    fn set_all_current_accumulators(&mut self, values: Vec<i32>) { self.inner.set_all_current_accumulators(&values) }
-    fn get_decay_threshold(&self, neuron_index: i32) -> i32 { self.inner.get_decay_threshold(neuron_index) }
-    fn set_vmax(&mut self, neuron_index: i32, vmax: i32) -> i32 { self.inner.set_vmax(neuron_index, vmax) }
-    fn set_vmin(&mut self, neuron_index: i32, vmin: i32) -> i32 { self.inner.set_vmin(neuron_index, vmin) }
-    fn potential(&self, neuron_index: i32) -> i32 { self.inner.potential(neuron_index) }
-    fn set_potential(&mut self, neuron_index: i32, value: i32) -> i32 { self.inner.set_potential(neuron_index, value) }
-    fn get_is_firing(&self, neuron_index: i32) -> i32 { self.inner.get_is_firing(neuron_index) }
-    fn set_is_firing(&mut self, neuron_index: i32, value: i32) -> i32 { self.inner.set_is_firing(neuron_index, value) }
-    fn get_synapse_timer(&self, neuron_index: i32) -> i32 { self.inner.get_synapse_timer(neuron_index) }
-    fn set_synapse_timer(&mut self, neuron_index: i32, value: i32) -> i32 { self.inner.set_synapse_timer(neuron_index, value) }
-    fn spike_count(&mut self, neuron_index: i32) -> i32 { self.inner.spike_count(neuron_index) }
-    fn get_all_spike_counts(&mut self) -> Vec<i32> { self.inner.get_all_spike_counts() }
-    fn spike_rate(&mut self, neuron_index: i32) -> f32 { self.inner.spike_rate(neuron_index) }
+    fn get_surrogate_tau(&self, neuron_index: i32) -> i32 {
+        self.inner.get_surrogate_tau(neuron_index)
+    }
+    fn get_current_accumulator(&self, neuron_index: i32) -> i32 {
+        self.inner.get_current_accumulator(neuron_index)
+    }
+    fn set_current_accumulator(&mut self, neuron_index: i32, value: i32) -> i32 {
+        self.inner.set_current_accumulator(neuron_index, value)
+    }
+    fn get_all_current_accumulators(&self) -> Vec<i32> {
+        self.inner.get_all_current_accumulators()
+    }
+    fn set_all_current_accumulators(&mut self, values: Vec<i32>) {
+        self.inner.set_all_current_accumulators(&values)
+    }
+    fn get_decay_threshold(&self, neuron_index: i32) -> i32 {
+        self.inner.get_decay_threshold(neuron_index)
+    }
+    fn set_vmax(&mut self, neuron_index: i32, vmax: i32) -> i32 {
+        self.inner.set_vmax(neuron_index, vmax)
+    }
+    fn set_vmin(&mut self, neuron_index: i32, vmin: i32) -> i32 {
+        self.inner.set_vmin(neuron_index, vmin)
+    }
+    fn potential(&self, neuron_index: i32) -> i32 {
+        self.inner.potential(neuron_index)
+    }
+    fn set_potential(&mut self, neuron_index: i32, value: i32) -> i32 {
+        self.inner.set_potential(neuron_index, value)
+    }
+    fn get_is_firing(&self, neuron_index: i32) -> i32 {
+        self.inner.get_is_firing(neuron_index)
+    }
+    fn set_is_firing(&mut self, neuron_index: i32, value: i32) -> i32 {
+        self.inner.set_is_firing(neuron_index, value)
+    }
+    fn get_synapse_timer(&self, neuron_index: i32) -> i32 {
+        self.inner.get_synapse_timer(neuron_index)
+    }
+    fn set_synapse_timer(&mut self, neuron_index: i32, value: i32) -> i32 {
+        self.inner.set_synapse_timer(neuron_index, value)
+    }
+    fn spike_count(&mut self, neuron_index: i32) -> i32 {
+        self.inner.spike_count(neuron_index)
+    }
+    fn get_all_spike_counts(&mut self) -> Vec<i32> {
+        self.inner.get_all_spike_counts()
+    }
+    fn spike_rate(&mut self, neuron_index: i32) -> f32 {
+        self.inner.spike_rate(neuron_index)
+    }
 
     /// Accepted for API compatibility; the CPU backend is single-threaded.
     fn set_num_threads(&mut self, _num_threads: i32) {}

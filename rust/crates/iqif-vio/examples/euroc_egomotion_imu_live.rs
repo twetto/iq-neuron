@@ -210,9 +210,7 @@ fn parse_r_bs(sensor_yaml: &Path) -> Matrix3<f64> {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!(
-            "Usage: euroc_egomotion_imu_live <euroc_dataset_path> [num_frames] [bx,by,bz]"
-        );
+        eprintln!("Usage: euroc_egomotion_imu_live <euroc_dataset_path> [num_frames] [bx,by,bz]");
         std::process::exit(1);
     }
     let data_dir = PathBuf::from(&args[1]);

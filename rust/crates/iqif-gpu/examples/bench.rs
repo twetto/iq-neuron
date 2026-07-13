@@ -31,7 +31,9 @@ fn gen_network(n: usize, fan_out: usize, seed: u64) -> (String, String) {
 
     let mut rng = seed | 1;
     let mut next = || {
-        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (rng >> 33) as usize
     };
 
@@ -83,7 +85,10 @@ fn main() {
 
     println!("IQIF throughput — CPU vs resident GPU (RTX 3060 class)");
     println!("steps={steps}, fan_out={fan_out}, metric = million neuron-updates/sec\n");
-    println!("{:>9}  {:>10}  {:>12}  {:>12}  {:>9}", "N", "edges", "CPU Mupd/s", "GPU Mupd/s", "speedup");
+    println!(
+        "{:>9}  {:>10}  {:>12}  {:>12}  {:>9}",
+        "N", "edges", "CPU Mupd/s", "GPU Mupd/s", "speedup"
+    );
 
     for &n in &[1_000usize, 10_000, 100_000, 500_000] {
         let mut core = build_core(n, fan_out);

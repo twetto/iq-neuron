@@ -78,8 +78,8 @@ impl SynapseGroup {
             // truncation to int matches the reference.
             let decay_factor: f32 = 1.0 - (1.0 / ((1i32 << self.decay_shift_k) as f32));
             let num: f32 = (decay_factor as f64).log10() as f32;
-            let den: f32 =
-                (((self.apparent_tau as f32 - 1.0) / self.apparent_tau as f32) as f64).log10() as f32;
+            let den: f32 = (((self.apparent_tau as f32 - 1.0) / self.apparent_tau as f32) as f64)
+                .log10() as f32;
 
             if den == 0.0 {
                 self.timer_threshold = 0;
@@ -188,7 +188,15 @@ impl IqNeuron {
         self.is_set
     }
 
-    pub fn set(&mut self, rest: i32, threshold: i32, reset: i32, shift_a: i32, shift_b: i32, noise: i32) {
+    pub fn set(
+        &mut self,
+        rest: i32,
+        threshold: i32,
+        reset: i32,
+        shift_a: i32,
+        shift_b: i32,
+        noise: i32,
+    ) {
         self.x = rest; // initialize with rest potential
         self.t_neuron = 0;
 
@@ -437,7 +445,12 @@ impl IqNetwork {
 
         let mut raw: Vec<Conn> = nums
             .chunks_exact(4)
-            .map(|c| Conn { pre: c[0], post: c[1], weight: c[2], tau: c[3] })
+            .map(|c| Conn {
+                pre: c[0],
+                post: c[1],
+                weight: c[2],
+                tau: c[3],
+            })
             .collect();
 
         // Apply per-neuron tau in file order (last connection to a given post
@@ -519,7 +532,11 @@ impl IqNetwork {
             }
         }
 
-        Csc { offsets, sources, weights }
+        Csc {
+            offsets,
+            sources,
+            weights,
+        }
     }
 
     fn in_range(&self, i: i32) -> bool {
@@ -637,7 +654,10 @@ impl IqNetwork {
     }
 
     pub fn get_all_current_accumulators(&self) -> Vec<i32> {
-        self.neurons.iter().map(|n| n.synapse.current_accumulator).collect()
+        self.neurons
+            .iter()
+            .map(|n| n.synapse.current_accumulator)
+            .collect()
     }
 
     pub fn set_all_current_accumulators(&mut self, values: &[i32]) {
@@ -796,7 +816,11 @@ mod tests {
                 s1.push(t);
             }
         }
-        (s0, s1, [net.get_decay_threshold(0), net.get_decay_threshold(1)])
+        (
+            s0,
+            s1,
+            [net.get_decay_threshold(0), net.get_decay_threshold(1)],
+        )
     }
 
     #[test]
